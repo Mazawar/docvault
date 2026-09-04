@@ -9,6 +9,30 @@
   color: transparent;
 }
 
+/* ---- 移动端适配 ---- */
+@media (max-width: 900px) {
+  .navlinks {
+    display: none !important; /* 首页=点logo，搜索=搜索框，管理从书架进 */
+  }
+  .booksel {
+    width: 118px;
+  }
+  .searchwrap input {
+    width: 92px !important;
+    font-size: 16px; /* 防 iOS 聚焦缩放 */
+  }
+  .searchwrap input:focus {
+    width: 140px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-title {
+    font-size: 38px;
+  }
+}
+
+
 :root {
   --bg: #ffffff;
   --bg-alt: #f6f6f7;

@@ -27,7 +27,7 @@ const tocActive = ref('')
 
 const pid = computed(() => String(route.params.pid || ''))
 const bid = computed(() => String(route.params.bid || ''))
-const slug = computed(() => String(route.params.slug || ''))
+const slug = computed(() => String(route.params.slug || '').replace(/\/+$/, ''))
 
 interface Group {
   name: string
