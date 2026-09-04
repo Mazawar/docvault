@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+python-multipart
+markdown
+pygments
+pillow
+weasyprint

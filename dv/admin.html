@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DocVault 管理台</title>
+<script>try{var t=localStorage.dvTheme;if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}</script>
+<style>
+:root{--bg:#ffffff;--bg-alt:#f6f6f7;--bg-soft:#f6f6f7;--divider:rgba(60,60,67,.12);
+--text-1:#213547;--text-2:rgba(60,60,67,.78);--text-3:rgba(60,60,67,.56);
+--brand:#3451b2;--brand-hover:#5672cd;--brand-soft:rgba(100,108,255,.14);
+--code-bg:#f6f8fa;--green:#3eaf7c;--red:#e53e3e;--nav-h:60px}
+html.dark{--bg:#1b1b1f;--bg-alt:#202127;--bg-soft:#202127;--divider:rgba(82,82,89,.36);
+--text-1:rgba(235,235,245,.86);--text-2:rgba(235,235,245,.6);--text-3:rgba(235,235,245,.38);
+--brand:#a8b1ff;--brand-hover:#9e9ce6;--brand-soft:rgba(159,169,255,.14);
+--code-bg:#161618;--green:#4ade80;--red:#f87171}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text-1);font-size:14.5px;line-height:1.75;
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;
+-webkit-font-smoothing:antialiased}
+a{color:var(--brand);text-decoration:none}a:hover{color:var(--brand-hover)}
+::selection{background:var(--brand-soft)}
+.nav{position:fixed;top:0;left:0;right:0;height:var(--nav-h);display:flex;align-items:center;gap:12px;
+padding:0 22px;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.6) blur(10px);
+border-bottom:1px solid var(--divider);z-index:80}
+.logo{font-size:17px;font-weight:700;color:var(--text-1);white-space:nowrap}
+.logo b{color:var(--brand)}
+.searchwrap{position:relative}
+#q{width:200px;border:1px solid var(--divider);background:var(--bg-alt);color:var(--text-1);border-radius:8px;
+padding:6px 12px;font-size:13px;outline:none;transition:border .2s}
+#q:focus{border-color:var(--brand);background:var(--bg)}
+#results{position:absolute;right:0;top:40px;width:380px;max-height:64vh;overflow:auto;display:none;z-index:99;
+background:var(--bg);border:1px solid var(--divider);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.14)}
+#results a{display:block;padding:9px 14px;color:var(--text-1);border-bottom:1px solid var(--divider);font-size:13px}
+#results a:last-child{border-bottom:none}
+#results a:hover{background:var(--bg-soft)}
+#results .t{font-weight:600}#results .s{font-size:12px;color:var(--text-3)}
+.adminlink{font-size:13.5px;color:var(--text-2);white-space:nowrap}
+.adminlink:hover{color:var(--brand)}
+.sub{font-size:12.5px;color:var(--text-3);border-left:1px solid var(--divider);padding-left:12px}
+.sp{flex:1}
+.tbtn{border:1px solid var(--divider);background:var(--bg);color:var(--text-2);border-radius:8px;
+width:34px;height:30px;cursor:pointer;font-size:14px}
+.tbtn:hover{color:var(--brand);border-color:var(--brand)}
+.mburger{display:none;align-items:center;justify-content:center}
+.backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:89}
+.backdrop.show{display:block}
+.sidebar{display:none}
+.btn{display:inline-block;border-radius:8px;padding:7px 14px;font-size:13.5px;cursor:pointer;
+border:1px solid var(--divider);background:var(--bg-alt);color:var(--text-1);transition:.15s}
+.btn:hover{border-color:var(--brand);color:var(--brand)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.btn.pri:hover{background:var(--brand-hover);color:#fff}
+button{font-family:inherit}
+button.pri:disabled{opacity:.4;cursor:wait}
+.wrap{max-width:1000px;margin:0 auto;padding:calc(var(--nav-h) + 24px) 18px 80px}
+.card{background:var(--bg);border:1px solid var(--divider);border-radius:14px;padding:18px 22px;margin:16px 0;
+scroll-margin-top:calc(var(--nav-h) + 10px)}
+.card>h2{margin:0 0 12px;font-size:15.5px;color:var(--text-1)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{color:var(--text-3);text-align:left;font-weight:600;padding:7px 8px;border-bottom:1px solid var(--divider);background:var(--bg-soft)}
+td{padding:9px 8px;border-bottom:1px solid var(--divider);color:var(--text-1)}
+tbody tr:hover td{background:var(--bg-soft)}
+button{border:1px solid var(--divider);background:var(--bg-alt);color:var(--text-1);border-radius:8px;
+padding:6px 13px;cursor:pointer;font-size:13px;transition:.15s}
+button:hover{border-color:var(--brand);color:var(--brand)}
+button.pri{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+button.pri:hover{opacity:.88;color:#fff}
+button:disabled{opacity:.4;cursor:wait}
+.tag{font-size:11px;background:var(--brand-soft);color:var(--brand);border-radius:6px;padding:1px 7px;margin-left:6px}
+.mut{color:var(--text-3);font-size:12px}
+pre{background:var(--code-bg);border:1px solid var(--divider);border-radius:10px;padding:12px;font-size:12px;
+max-height:240px;overflow:auto;white-space:pre-wrap;color:var(--text-2);font-family:"JetBrains Mono",ui-monospace,Consolas,monospace}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+input,select,textarea{border:1px solid var(--divider);background:var(--bg-alt);color:var(--text-1);
+border-radius:8px;padding:7px 11px;font-size:13px;outline:none;font-family:inherit;transition:border .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--brand);background:var(--bg)}
+textarea{width:100%;min-height:300px;resize:vertical;line-height:1.7;
+font-family:"JetBrains Mono",ui-monospace,Consolas,"Noto Sans Mono CJK SC",monospace;font-size:13px}
+.ok{color:var(--green)}.err{color:var(--red)}
+.tblwrap{overflow-x:auto;margin:0 -4px}
+.qitem{display:flex;justify-content:space-between;gap:12px;padding:8px 6px;border-bottom:1px dashed var(--divider)}
+.qitem:hover{background:var(--bg-soft)}
+.qitem a{color:var(--text-1);font-size:13.5px}
+.qitem a:hover{color:var(--brand)}
+.qmeta{color:var(--text-3);font-size:12px;white-space:nowrap}
+@media(max-width:700px){
+ .wrap{padding:calc(var(--nav-h) + 14px) 10px 60px}
+ .nav{padding:0 12px;gap:8px}
+ .sub{display:none}
+ .card{padding:14px;border-radius:12px}
+ th,td{padding:6px 4px;font-size:12px}
+ td button{padding:4px 9px;font-size:12px;margin:1px 2px;white-space:nowrap}
+ .row input,.row select{flex:1;min-width:0;width:auto}
+ .qitem{flex-direction:column;gap:2px}
+ .qmeta{white-space:normal}
+ textarea{min-height:200px}
+ .mburger{display:inline-flex}
+ .sidebar{display:block;position:fixed;left:0;top:var(--nav-h);bottom:0;height:auto;width:280px;z-index:90;
+  transform:translateX(-105%);transition:transform .25s ease;background:var(--bg);
+  border-right:1px solid var(--divider);padding:18px 12px;overflow:auto}
+ .sidebar.open{transform:translateX(0);box-shadow:12px 0 40px rgba(0,0,0,.25)}
+ .sidebar a{display:block;padding:11px 12px;border-radius:8px;color:var(--text-1);font-size:14px;margin:2px 0}
+ .sidebar a:hover{background:var(--bg-soft);color:var(--brand)}
+ .sidebar .sep{border-top:1px solid var(--divider);margin:8px 0}
+}
+</style></head><body>
+<nav class="nav">
+  <button class="tbtn mburger" id="mbtn" title="菜单">☰</button>
+  <a class="logo" href="/">Doc<b>Vault</b></a><span class="sub">管理台</span>
+  <span class="sp"></span>
+  <div class="searchwrap"><input id="q" placeholder="搜索全库… Ctrl+K" autocomplete="off"><div id="results"></div></div>
+  <button class="tbtn" id="themebtn" title="切换主题">🌗</button>
+  <a class="adminlink" href="/" title="返回阅读站">📖<span class="t"> 返回阅读</span></a>
+</nav>
+<div class="backdrop" id="backdrop"></div>
+<aside class="sidebar" id="sidebar">
+  <a href="/">📖 返回阅读站</a>
+  <div class="sep"></div>
+  <a href="#qcard">🔍 内容查询</a>
+  <a href="#pcard">📦 项目资源</a>
+  <a href="#ncard">✍️ 笔记编辑</a>
+  <a href="#pdfcard">📄 导出 PDF</a>
+  <a href="#upcard">📎 上传附件</a>
+  <a href="#jobcard">⏳ 任务队列</a>
+</aside>
+<div class="wrap">
+
+<div class="card" id="qcard">
+  <h2>🔍 内容查询</h2>
+  <div class="row">
+    <select id="qpid" onchange="dosearch()"><option value="">全部项目</option></select>
+    <input id="qq" placeholder="搜标题 / 路径，如：AQS、redis 持久化…" style="flex:1;min-width:180px" oninput="dosearch()">
+  </div>
+  <div id="qcnt" class="mut" style="margin-top:10px"></div>
+  <div id="qres" style="margin-top:6px"></div>
+</div>
+
+<div class="card" id="pcard">
+  <h2>📦 项目资源</h2>
+  <div class="tblwrap"><table id="tbl"><thead><tr><th>名称</th><th>类型</th><th>内容</th><th>同步于</th><th>操作</th></tr></thead></table></div>
+  <div class="row" style="margin-top:12px">
+    <button class="pri" onclick="newproj()">＋ 新增项目</button>
+    <button onclick="api('/admin/api/sync-all','⟳ 全部同步')">⟳ 全部同步</button>
+    <button onclick="api('/admin/api/export','📦 导出离线包')">📦 导出离线包</button>
+    <a id="dl" href="/admin/api/download" style="display:none"><button>⬇ 下载离线包</button></a>
+    <span id="zipinfo" class="mut"></span>
+  </div>
+</div>
+
+<div class="card" id="projcard" style="display:none">
+  <h2 id="projtitle">新增项目</h2>
+  <div class="row">
+    <input id="f_id" placeholder="id（小写字母数字-）" style="width:190px">
+    <input id="f_name" placeholder="显示名称" style="width:210px">
+    <select id="f_type" onchange="typetoggle()"><option value="github">github 仓库</option><option value="upload">本地上传</option></select>
+  </div>
+  <div class="row" id="ghrow" style="margin-top:8px">
+    <input id="f_repo" placeholder="owner/repo，如 doocs/advanced-java" style="width:300px">
+    <input id="f_root" placeholder="md 根目录（默认 .）" style="width:200px">
+  </div>
+  <div id="booksrow">
+    <div class="mut" style="margin:10px 0 4px">多本书映射（每行 <b>目录=书名</b>，留空则整库一本书）：</div>
+    <textarea id="f_books" style="width:100%;min-height:84px" placeholder="network=图解网络&#10;mysql=图解MySQL"></textarea>
+  </div>
+  <div class="row" style="margin-top:12px">
+    <button class="pri" onclick="saveproj()">💾 保存并同步</button>
+    <button onclick="document.getElementById('projcard').style.display='none'">取消</button>
+    <span id="projmsg" class="mut"></span>
+  </div>
+</div>
+
+<div class="card" id="ncard">
+  <h2>✍️ 笔记编辑</h2>
+  <div class="row" style="margin-bottom:10px">
+    <select id="notename" onchange="loadnote()"></select>
+    <button onclick="newnote()">＋ 新笔记</button>
+    <button class="pri" onclick="savenote()">💾 保存并发布</button>
+    <span id="notemsg" class="mut"></span>
+  </div>
+  <textarea id="notetext" placeholder="# 用 Markdown 写点什么..."></textarea>
+  <div class="mut" style="margin-top:6px">保存后自动重建"我的笔记"站点（约 40 秒）· 支持 GFM / 代码高亮 / [!TIP] 提示块</div>
+</div>
+
+<div class="card" id="pdfcard">
+  <h2>📄 导出 PDF</h2>
+  <div class="row" style="margin-top:4px">
+    <select id="pidsel" onchange="books()"></select>
+    <select id="booksel"></select>
+    <button onclick="pdf()">导出 PDF</button>
+  </div>
+  <div id="pdflist" class="mut" style="margin-top:8px"></div>
+</div>
+
+<div class="card" id="upcard">
+  <h2>📎 上传附件</h2>
+  <div class="row" style="margin-top:4px">
+    <input type="file" id="up" multiple>
+    <button class="pri" onclick="up()">上传</button>
+    <span id="upmsg" class="mut"></span>
+  </div>
+</div>
+
+<div class="card" id="jobcard"><h2>⏳ 任务队列</h2><pre id="jobs">…</pre></div>
+</div>
+<script>
+const $=x=>document.querySelector(x);
+document.getElementById('themebtn').onclick=function(){const c=document.documentElement.classList;c.toggle('dark');
+try{localStorage.dvTheme=c.contains('dark')?'dark':'light'}catch(e){}};
+/* drawer (与前台一致) */
+const mb=$('#mbtn'),bdEl=$('#backdrop'),sbEl=$('#sidebar');
+function drawer(o){if(sbEl)sbEl.classList.toggle('open',o);
+ if(bdEl)bdEl.classList.toggle('show',o);document.body.style.overflow=o?'hidden':''}
+if(mb)mb.onclick=function(){drawer(!sbEl.classList.contains('open'))};
+if(bdEl)bdEl.onclick=function(){drawer(false)};
+document.querySelectorAll('#sidebar a').forEach(a=>a.addEventListener('click',()=>drawer(false)));
+/* navbar 全库搜索 (与前台同款交互) */
+const nq=$('#q'),nbox=$('#results');let nqt=null,nidx=null;
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+nq.addEventListener('input',function(){clearTimeout(nqt);nqt=setTimeout(function(){
+ const t=nq.value.trim();if(!t){nbox.style.display='none';return}
+ fetch('/admin/api/articles?q='+encodeURIComponent(t)+'&limit=20').then(r=>r.json()).then(r=>{
+  nbox.innerHTML=r.items.map(x=>'<a href="'+x.url+'" target="_blank"><div class="t">'+esc(x.title)+'</div><div class="s">'+esc(x.pname)+' · '+esc(x.book)+'</div></a>').join('')||'<a><div class="s">无结果</div></a>';
+  nbox.style.display='block'})},250)});
+nq.addEventListener('keydown',function(e){if(e.key==='Enter'){clearTimeout(nqt);dosearch()}});
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();nq.focus()}});
+document.addEventListener('click',function(e){if(nbox&&!nbox.contains(e.target)&&e.target!==nq)nbox.style.display='none'});
+async function st(){const r=await(await fetch('/admin/api/status')).json();
+ const t=$('#tbl');
+ t.innerHTML='<thead><tr><th>名称</th><th>类型</th><th>内容</th><th>同步于</th><th>操作</th></tr></thead>';
+ $('#pidsel').innerHTML=r.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+ $('#qpid').innerHTML='<option value="">全部项目</option>'+r.projects.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+ r.projects.forEach(p=>{
+   const n=p.books.reduce((s,b)=>s+b.n,0);
+   const det=p.books.map(b=>`${b.title}(${b.n})`).join('、')||'-';
+   t.insertAdjacentHTML('beforeend',`<tbody><tr><td><b>${p.name}</b>${p.type==='upload'?'<span class="tag">上传</span>':''}</td>
+    <td>${p.type}</td><td class="mut">${det}</td><td class="mut">${p.updated}</td>
+    <td><button onclick="api('/admin/api/sync/${p.id}','${p.name}')">同步</button>
+    <button onclick="editproj('${p.id}')">编辑</button>
+    <button onclick="delproj('${p.id}')">删</button></td></tr></tbody>`)});
+ books(r);
+ $('#notename').innerHTML='<option value="">＋ 新笔记…</option>'+r.notes.map(n=>`<option value="${n.name}">${n.name}</option>`).join('');
+ $('#pdflist').textContent='已有 PDF: '+(r.pdfs.join('  ')||'无');
+ $('#zipinfo').textContent=r.zip?('最近离线包: '+r.zip):'';
+ $('#dl').style.display=r.zip?'inline':'none';$('#dl').title=r.zip||'';
+ let s='';for(const[k,j]of Object.entries(r.jobs)){s+=`[${j.status==='done'?'✅':j.status==='error'?'❌':'⏳'}] ${j.name} ${j.start||''} → ${j.end||''}\n`+(j.log||[]).map(l=>'  '+l).join('\n')+'\n'}
+ $('#jobs').textContent=s||'(暂无任务)';}
+function books(r){(r?Promise.resolve(r):fetch('/admin/api/status').then(x=>x.json())).then(r2=>{
+ const p=r2.projects.find(x=>x.id===$('#pidsel').value);
+ $('#booksel').innerHTML=(p?p.books:[]).map(b=>`<option value="${b.id}">${b.title} (${b.n})</option>`).join('')})}
+async function api(url,label){const b=[...document.querySelectorAll('button')].find(x=>x.getAttribute('onclick')&&x.getAttribute('onclick').includes(url));
+ if(b)b.disabled=true;await fetch(url,{method:'POST'});setTimeout(()=>{if(b)b.disabled=false;st()},800)}
+async function pdf(){await fetch(`/admin/api/pdf/${$('#pidsel').value}/${$('#booksel').value}`,{method:'POST'});st()}
+async function up(){const f=$('#up').files;if(!f.length)return;const fd=new FormData();
+ fd.append('pid','my-notes');for(const x of f)fd.append('files',x);
+ $('#upmsg').textContent='上传中…';const r=await(await fetch('/admin/api/upload',{method:'POST',body:fd})).json();
+ $('#upmsg').textContent='已保存: '+(r.saved||[]).join(', ');st()}
+function loadnote(){const n=$('#notename').value;
+ if(!n){$('#notetext').value='';return}
+ fetch('/admin/api/note?name='+encodeURIComponent(n)).then(r=>r.json()).then(j=>$('#notetext').value=j.content||'')}
+function newnote(){const n=prompt('笔记文件名(不含.md):');if(!n)return;
+ const o=document.createElement('option');o.value=n+'.md';o.textContent=n+'.md';o.selected=true;
+ $('#notename').appendChild(o);$('#notetext').value='# '+n+'\n\n'}
+async function savenote(){let n=$('#notename').value;
+ if(!n){n=prompt('笔记文件名(不含.md):');if(!n)return}
+ const r=await(await fetch('/admin/api/note',{method:'POST',
+  body:new URLSearchParams({name:n,content:$('#notetext').value})})).json();
+ $('#notemsg').textContent='✓ 已保存 '+r.name+'，重建中…';setTimeout(st,1500)}
+function typetoggle(){const gh=$('#f_type').value==='github';
+ $('#ghrow').style.display=gh?'':'none';$('#booksrow').style.display=gh?'':'none'}
+async function newproj(){$('#projcard').style.display='block';$('#projtitle').textContent='新增项目';
+ $('#f_id').value='';$('#f_id').disabled=false;$('#f_name').value='';$('#f_type').value='github';
+ $('#f_repo').value='';$('#f_root').value='';$('#f_books').value='';$('#projmsg').textContent='';typetoggle();
+ $('#projcard').scrollIntoView({behavior:'smooth'})}
+async function editproj(pid){const list=await(await fetch('/admin/api/projects')).json();
+ const p=list.find(x=>x.id===pid);if(!p)return;
+ $('#projcard').style.display='block';$('#projtitle').textContent='编辑项目 · '+pid;
+ $('#f_id').value=pid;$('#f_id').disabled=true;$('#f_name').value=p.name;$('#f_type').value=p.type;
+ $('#f_repo').value=p.repo||'';$('#f_root').value=p.root||'';
+ $('#f_books').value=Object.entries(p.books||{}).map(([k,v])=>k+'='+v).join('\n');
+ $('#projmsg').textContent='';typetoggle();
+ $('#projcard').scrollIntoView({behavior:'smooth'})}
+async function saveproj(){
+ const books={};$('#f_books').value.split('\n').forEach(l=>{const i=l.indexOf('=');
+  if(i>0)books[l.slice(0,i).trim()]=l.slice(i+1).trim()});
+ const r=await(await fetch('/admin/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({id:$('#f_id').value,name:$('#f_name').value,type:$('#f_type').value,
+   repo:$('#f_repo').value,root:$('#f_root').value,
+   books:$('#f_type').value==='github'?books:{}})})).json();
+ if(r.ok){$('#projcard').style.display='none';st()}
+ else $('#projmsg').textContent='✗ '+(r.error||'失败')}
+async function delproj(pid){if(!confirm('删除项目「'+pid+'」？\n其仓库缓存、章节页面、PDF 将一并清理'))return;
+ await fetch('/admin/api/projects/'+pid+'?purge=true',{method:'DELETE'});st()}
+let qt=null;
+function dosearch(){clearTimeout(qt);qt=setTimeout(async function(){
+ const p=$('#qpid').value,t=$('#qq').value.trim();
+ const r=await(await fetch(`/admin/api/articles?pid=${p}&q=${encodeURIComponent(t)}&limit=60`)).json();
+ $('#qcnt').textContent=`命中 ${r.total} 篇`+(r.total>60?'（显示前 60）':'');
+ $('#qres').innerHTML=r.items.map(x=>
+  `<div class="qitem"><a href="${x.url}" target="_blank">${x.title}</a>
+   <span class="qmeta">${x.pname} · ${x.book}</span></div>`).join('')
+  ||'<div class="mut">无匹配内容</div>'},250)}
+st();setInterval(st,3000);dosearch();
+</script></body></html>

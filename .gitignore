@@ -1,0 +1,11 @@
+# 运行时数据（数据目录建议放沙箱/服务器本地盘，见 README）
+data/
+data-ghosts-*/
+junk*/
+site.tmp/
+site.old/
+nohup.out
+__pycache__/
+*.pyc
+.DS_Store
+*.log

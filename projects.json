@@ -1,0 +1,37 @@
+{
+  "projects": [
+    {
+      "id": "xiaolincoding",
+      "name": "小林 coding",
+      "type": "github",
+      "repo": "xiaolincoder/CS-Base",
+      "root": ".",
+      "books": {
+        "cs_learn": "计算机基础",
+        "network": "图解网络",
+        "os": "图解系统",
+        "mysql": "图解MySQL",
+        "redis": "图解Redis"
+      }
+    },
+    {
+      "id": "javaguide",
+      "name": "JavaGuide",
+      "type": "github",
+      "repo": "Snailclimb/JavaGuide",
+      "root": "docs"
+    },
+    {
+      "id": "advanced-java",
+      "name": "advanced-java 进阶扫盲",
+      "type": "github",
+      "repo": "doocs/advanced-java",
+      "root": "."
+    },
+    {
+      "id": "my-notes",
+      "name": "我的笔记",
+      "type": "upload"
+    }
+  ]
+}
