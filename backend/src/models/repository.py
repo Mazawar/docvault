@@ -26,15 +26,17 @@ def _prow(r):
         return None
     return {'id': r['id'], 'name': r['name'], 'type': r['type'], 'repo': r['repo'],
             'root': r['root'], 'books': json.loads(r['books_json'] or '{}'),
+            'group_titles': json.loads(r['group_titles'] or '{}'),
             'sort': r['sort'], 'updated': r['updated']}
 
 
 def upsert_project(p, sort=None):
     with database._lock, database.connect() as c:
         sv = sort if sort is not None else p.get('sort')
-        c.execute("INSERT INTO projects(id,name,type,repo,root,books_json,sort) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, type=excluded.type, repo=excluded.repo, root=excluded.root, books_json=excluded.books_json, sort=COALESCE(?, projects.sort)",
+        c.execute("INSERT INTO projects(id,name,type,repo,root,books_json,group_titles,sort) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, type=excluded.type, repo=excluded.repo, root=excluded.root, books_json=excluded.books_json, group_titles=excluded.group_titles, sort=COALESCE(?, projects.sort)",
                   (p['id'], p['name'], p['type'], p.get('repo', ''), p.get('root', '.'),
                    json.dumps(p.get('books') or {}, ensure_ascii=False),
+                   json.dumps(p.get('group_titles') or {}, ensure_ascii=False),
                    sv, sv))
 
 

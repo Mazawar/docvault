@@ -112,6 +112,7 @@ def book_payload(pid, bid):
         'pid': pid, 'bid': bid, 'title': book['title'], 'n': book['n'],
         'pname': proj['name'] if proj else pid,
         'updated': proj['updated'] if proj else '',
+        'gt': ((proj or {}).get('group_titles') or {}).get(bid, {}),
         'articles': repository.list_articles(pid, bid),
     }
 

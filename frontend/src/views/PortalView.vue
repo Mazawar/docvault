@@ -113,6 +113,10 @@ function fmtDay(s: string): string {
       </div>
       <div v-else class="text-sm text-[var(--text-3)]">暂无记录，读一篇文章试试</div>
     </section>
+
+    <footer class="mt-10 border-t border-[var(--divider)] pt-5 pb-2 text-center text-xs text-[var(--text-3)]">
+      DocVault · 内容仅供个人学习参考，版权归原作者所有，请支持原站
+    </footer>
   </div>
 </template>
 

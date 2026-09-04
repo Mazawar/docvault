@@ -23,6 +23,7 @@ class ProjectSpec(BaseModel):
     repo: str = ''
     root: str = '.'
     books: dict[str, str] = Field(default_factory=dict)
+    groupTitles: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
 class SyncSpec(BaseModel):
@@ -160,6 +161,8 @@ def save_project(spec: ProjectSpec):
         entry['repo'] = repo
         entry['root'] = spec.root.strip() or '.'
         entry['books'] = {str(k): str(v) for k, v in spec.books.items() if str(k).strip()}
+        entry['group_titles'] = {str(bid): {str(d): str(t) for d, t in m.items()}
+                                 for bid, m in (spec.groupTitles or {}).items()}
     else:
         (config.UPLOADS / pid).mkdir(parents=True, exist_ok=True)
     existing = [p for p in repository.list_projects() if p['id'] != pid]

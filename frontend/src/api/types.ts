@@ -31,6 +31,7 @@ export interface BookPayload {
   n: number
   pname: string
   updated: string
+  gt?: Record<string, string>
   articles: ArticleItem[]
 }
 
@@ -62,6 +63,7 @@ export interface ProjectFull {
   type: 'github' | 'upload'
   repo: string
   root: string
+  group_titles?: Record<string, Record<string, string>>
   books: Record<string, string>
   sort: number
   updated: string

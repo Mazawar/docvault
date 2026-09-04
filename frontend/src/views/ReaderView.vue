@@ -30,6 +30,7 @@ const bid = computed(() => String(route.params.bid || ''))
 const slug = computed(() => String(route.params.slug || '').replace(/\/+$/, ''))
 
 interface Group {
+  key: string
   name: string
   items: { slug: string; title: string }[]
 }
@@ -37,6 +38,7 @@ interface Group {
 /** 侧栏按一级子目录分组（与旧站规则一致） */
 const groups = computed<Group[]>(() => {
   if (!book.value) return []
+  const gt = book.value.gt || {}
   const map = new Map<string, { slug: string; title: string }[]>()
   for (const a of book.value.articles) {
     const segs = a.slug.split('/')
@@ -44,12 +46,12 @@ const groups = computed<Group[]>(() => {
     if (!map.has(g)) map.set(g, [])
     map.get(g)!.push(a)
   }
-  return [...map.entries()].map(([g, items]) => ({
-    name: g
+  return [...map.entries()].map(([g, items]) => {
+    const cleaned = g
       ? g.replace(/^\d+[_.\s-]*/, '').replace(/[_-]/g, ' ').trim() || g
-      : '',
-    items
-  }))
+      : ''
+    return { key: g, name: gt[g] || cleaned, items }
+  })
 })
 
 async function loadBook() {
@@ -172,16 +174,27 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
         <div class="px-2.5 pb-2 text-[13px] font-semibold text-[var(--text-1)] truncate" :title="book.title">
           {{ book.pname !== book.title ? book.pname + ' · ' + book.title : book.title }}
         </div>
-        <details v-for="g in groups" :key="g.name" open>
-          <summary v-if="g.name">{{ g.name }}</summary>
-          <a
-            v-for="a in g.items"
-            :key="a.slug"
-            :class="{ on: a.slug === slug, read: isRead(toUrl(pid, bid, a.slug)) }"
-            :href="toUrl(pid, bid, a.slug)"
-            :title="a.title"
-          >{{ a.title }}</a>
-        </details>
+        <template v-for="g in groups" :key="g.name || '__flat__'">
+          <details v-if="g.name" open>
+            <summary>{{ g.name }}</summary>
+            <a
+              v-for="a in g.items"
+              :key="a.slug"
+              :class="{ on: a.slug === slug, read: isRead(toUrl(pid, bid, a.slug)) }"
+              :href="toUrl(pid, bid, a.slug)"
+              :title="a.title"
+            >{{ a.title }}</a>
+          </details>
+          <template v-else>
+            <a
+              v-for="a in g.items"
+              :key="a.slug"
+              :class="{ on: a.slug === slug, read: isRead(toUrl(pid, bid, a.slug)) }"
+              :href="toUrl(pid, bid, a.slug)"
+              :title="a.title"
+            >{{ a.title }}</a>
+          </template>
+        </template>
       </div>
     </aside>
 
@@ -222,6 +235,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
         <div class="mx-auto max-w-[784px] border-t border-[var(--divider)] px-6 pb-14 pt-4 text-xs text-[var(--text-3)]">
           DocVault · 同步于 {{ art.updated }}
           <a v-if="art.source" :href="art.source" target="_blank">源</a>
+          · 内容仅供个人学习参考，版权归原作者所有，请支持原站
         </div>
       </template>
     </main>

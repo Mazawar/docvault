@@ -167,6 +167,7 @@ def import_projects_json():
     for i, p in enumerate(cfg.get('projects', [])):
         repository.upsert_project({'id': p['id'], 'name': p.get('name', p['id']),
                                    'type': p.get('type', 'github'), 'repo': p.get('repo', ''),
-                                   'root': p.get('root', '.'), 'books': p.get('books') or {}},
+                                   'root': p.get('root', '.'), 'books': p.get('books') or {},
+                                   'group_titles': p.get('groupTitles') or {}},
                                   sort=i)
     return len(cfg.get('projects', []))

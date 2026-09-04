@@ -34,6 +34,7 @@ export const adminApi = {
     repo: string
     root: string
     books: Record<string, string>
+    groupTitles: Record<string, Record<string, string>>
   }) => postJSON<{ ok: boolean }>('api/admin/projects', p),
   deleteProject: (pid: string) => del<{ ok: boolean }>(`api/admin/projects/${pid}`),
   listProjects: () => getJSON<ProjectFull[]>('api/admin/projects'),

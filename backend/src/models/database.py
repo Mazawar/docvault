@@ -20,8 +20,8 @@ SCHEMA = '''
 CREATE TABLE IF NOT EXISTS projects(
   id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL DEFAULT 'github',
   repo TEXT NOT NULL DEFAULT '', root TEXT NOT NULL DEFAULT '.',
-  books_json TEXT NOT NULL DEFAULT '', sort INTEGER NOT NULL DEFAULT 0,
-  updated TEXT NOT NULL DEFAULT '');
+  books_json TEXT NOT NULL DEFAULT '', group_titles TEXT NOT NULL DEFAULT '',
+  sort INTEGER NOT NULL DEFAULT 0, updated TEXT NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS books(
   pid TEXT NOT NULL, id TEXT NOT NULL, title TEXT NOT NULL,
   root TEXT NOT NULL DEFAULT '', PRIMARY KEY(pid, id));
@@ -45,6 +45,9 @@ def init():
         return
     with _lock, connect() as c:
         c.executescript(SCHEMA)
+        cols = {r[1] for r in c.execute('PRAGMA table_info(projects)')}
+        if 'group_titles' not in cols:
+            c.execute("ALTER TABLE projects ADD COLUMN group_titles TEXT NOT NULL DEFAULT ''")
         if not c.execute('SELECT 1 FROM projects LIMIT 1').fetchone():
             _seed_projects(c)
     _initialized = True
@@ -59,7 +62,8 @@ def _seed_projects(c):
     except Exception:
         return
     for i, p in enumerate(cfg.get('projects', [])):
-        c.execute("INSERT OR IGNORE INTO projects(id,name,type,repo,root,books_json,sort) VALUES(?,?,?,?,?,?,?)",
+        c.execute("INSERT OR IGNORE INTO projects(id,name,type,repo,root,books_json,group_titles,sort) VALUES(?,?,?,?,?,?,?,?)",
                   (p['id'], p.get('name', p['id']), p.get('type', 'github'),
                    p.get('repo', ''), p.get('root', '.'),
-                   json.dumps(p.get('books') or {}, ensure_ascii=False), i))
+                   json.dumps(p.get('books') or {}, ensure_ascii=False),
+                   json.dumps(p.get('groupTitles') or {}, ensure_ascii=False), i))

@@ -79,7 +79,24 @@ const stats = computed(() => {
 /* ---------- 项目编辑 ---------- */
 const formOpen = ref(false)
 const editing = ref('')
-const form = reactive({ id: '', name: '', type: 'github', repo: '', root: '', booksText: '' })
+const form = reactive({ id: '', name: '', type: 'github', repo: '', root: '', booksText: '', gtText: '' })
+
+function parseGT(t: string): Record<string, Record<string, string>> {
+  const gt: Record<string, Record<string, string>> = {}
+  for (const line of t.split('\n')) {
+    const i = line.indexOf('=')
+    if (i <= 0) continue
+    const path = line.slice(0, i).trim()
+    const val = line.slice(i + 1).trim()
+    const slash = path.indexOf('/')
+    if (slash > 0 && path.slice(0, slash).trim() && path.slice(slash + 1).trim()) {
+      const bid = path.slice(0, slash).trim()
+      const dir = path.slice(slash + 1).trim()
+      ;(gt[bid] = gt[bid] || {})[dir] = val
+    }
+  }
+  return gt
+}
 
 function parseBooks(t: string): Record<string, string> {
   const books: Record<string, string> = {}
@@ -92,7 +109,7 @@ function parseBooks(t: string): Record<string, string> {
 
 function newProject() {
   editing.value = ''
-  Object.assign(form, { id: '', name: '', type: 'github', repo: '', root: '', booksText: '' })
+  Object.assign(form, { id: '', name: '', type: 'github', repo: '', root: '', booksText: '', gtText: '' })
   formOpen.value = true
 }
 
@@ -109,6 +126,14 @@ async function editProject(pid: string) {
     root: p.root || '',
     booksText: Object.entries(p.books || {})
       .map(([k, v]) => `${k}=${v}`)
+      .join('\n'),
+    gtText: Object.entries((p as any).group_titles || {})
+      .map(([bid, m]) =>
+        Object.entries(m as Record<string, string>)
+          .map(([d, t]) => `${bid}/${d}=${t}`)
+          .join('\n')
+      )
+      .filter(Boolean)
       .join('\n')
   })
   formOpen.value = true
@@ -122,7 +147,8 @@ async function saveProject() {
       type: form.type,
       repo: form.repo.trim(),
       root: form.root.trim(),
-      books: form.type === 'github' ? parseBooks(form.booksText) : {}
+      books: form.type === 'github' ? parseBooks(form.booksText) : {},
+      groupTitles: form.type === 'github' ? parseGT(form.gtText) : {}
     })
     formOpen.value = false
     ElMessage.success('已保存，同步任务已提交')
@@ -394,6 +420,14 @@ function fmtSize(n: number): string {
               type="textarea"
               :rows="4"
               placeholder="每行 目录=书名，如：&#10;network=图解网络&#10;mysql=图解MySQL&#10;留空则整库一本书"
+            />
+          </el-form-item>
+          <el-form-item label="分组中文名">
+            <el-input
+              v-model="form.gtText"
+              type="textarea"
+              :rows="4"
+              placeholder="可选。每行 书id/目录=章节中文名，与原站侧栏对齐，如：&#10;network/1_base=网络基础&#10;network/2_http=HTTP 篇&#10;留空则显示目录名"
             />
           </el-form-item>
         </template>
