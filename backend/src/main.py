@@ -2,7 +2,7 @@
 import argparse
 from .core import config
 from .models import database
-from .services import export_service, pdf_service, sync_service
+from .services import export_service, pack_service, pdf_service, sync_service
 
 
 def main():
@@ -25,6 +25,10 @@ def main():
     p.add_argument('pid')
     p.add_argument('bid')
     e = sub.add_parser('export', help='打离线包 zip')
+    pk = sub.add_parser('export-pack', help='打资源包（可导回程序）')
+    pk.add_argument('--with-repos', action='store_true', help='附带源仓库（导入后可联网更新）')
+    ipk = sub.add_parser('import-pack', help='导入资源包')
+    ipk.add_argument('pack')
     i = sub.add_parser('import', help='从 projects.json 重新导入项目配置')
 
     a2 = ap.parse_args()
@@ -44,6 +48,10 @@ def main():
         pdf_service.export_book(a2.pid, a2.bid)
     elif a2.cmd == 'export':
         export_service.export_zip()
+    elif a2.cmd == 'export-pack':
+        pack_service.export_pack(with_repos=a2.with_repos)
+    elif a2.cmd == 'import-pack':
+        pack_service.import_pack(a2.pack)
     elif a2.cmd == 'import':
         n = sync_service.import_projects_json()
         print(f'imported {n} projects')

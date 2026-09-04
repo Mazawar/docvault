@@ -19,7 +19,27 @@ python -m src.main serve           # 联网自用：http://127.0.0.1:8787 （阅
 
 桌面模式（双击 exe 或 `python -m src.main app`）：pywebview 窗口，不可用时自动打开浏览器。
 
-## 内网机：部署离线包
+## 内网机 A：导入资源包（完整实例，推荐）
+
+资源包 = 可导回程序的数据包（SQLite 库 + 图片缓存 + 上传 + PDF + **前端产物**）。
+内网机器：clone 代码 + 导入 + serve = 完整 DocVault（搜索/管理/笔记/阅读记忆全可用），全程无网络、无 npm。
+
+```bash
+# 联网机（有数据的一方）
+python -m src.main export-pack                 # 管理台「导出资源包」等价
+python -m src.main export-pack --with-repos    # 附带源仓库，导入后可继续联网同步
+
+# 内网机（空机器）
+git clone https://github.com/Mazawar/docvault.git && cd docvault/backend
+pip install -r requirements.txt
+python -m src.main import-pack DocVault-pack-xxx.zip
+python -m src.main serve --port 8787           # 完整实例，直接用
+```
+
+管理台等价操作：「导出资源包 / 下载资源包 / 导入资源包」。
+导入语义：按项目合并（同 id 覆盖、其余保留），图片/上传/PDF 跳过已有文件。
+
+## 内网机 B：只读静态站（无需本程序）
 
 ```bash
 unzip DocVault-offline-*.zip -d dv
@@ -30,6 +50,9 @@ cd dv/site && python3 -m http.server 8080
 离线包 = 纯静态站（Vue 前端 + 预渲染 JSON 数据树 + 本地化图片）+ `pdf/` 全部导出的 PDF。
 零外部依赖（无 CDN/在线字体/JS 库），阅读、全文搜索、暗色主题、阅读记忆全部离线可用。
 以后更新：重打新包，解压覆盖 `site/` 即可。
+
+> 一句话区分：**资源包**是程序的数据（导回 DocVault 就是完整实例）；
+> **静态站 zip** 是只读产物（给没有程序的人浏览器直接看）。
 
 ## 开发
 

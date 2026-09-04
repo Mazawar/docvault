@@ -26,6 +26,7 @@ READ_PORT = int(os.environ.get('DV_PORT', '8787'))
 
 _FRONTEND_CANDIDATES = (
     BASE.parent / 'frontend' / 'dist',                    # 开发态（monorepo 布局）
+    DATA / 'frontend-dist',                               # 资源包导入（离线机免 npm）
     Path(getattr(sys, '_MEIPASS', '')) / 'frontend' / 'dist',  # PyInstaller 解包
 )
 

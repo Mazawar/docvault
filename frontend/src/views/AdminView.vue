@@ -46,6 +46,15 @@ async function act(key: string, fn: () => Promise<unknown>, okMsg: string) {
 const syncOne = (pid: string) => act(`sync-${pid}`, () => adminApi.sync(pid), `已提交同步：${pid}`)
 const syncAll = () => act('sync-all', () => adminApi.sync(''), '已提交全量同步')
 const doExport = () => act('export', () => adminApi.exportZip(), '已提交离线包导出')
+const doExportPack = () => act('export-pack', () => adminApi.exportPack(), '已提交资源包导出')
+const packInput = ref<HTMLInputElement | null>(null)
+const doImportPack = () => packInput.value?.click()
+const onPackFile = (e: Event) => {
+  const f = (e.target as HTMLInputElement).files?.[0]
+  if (!f) return
+  act('import-pack', () => adminApi.importPack(f), `已提交导入：${f.name}`)
+  ;(e.target as HTMLInputElement).value = ''
+}
 const doPdf = () => {
   if (!pdfPid.value || !pdfBid.value) return ElMessage.warning('选择项目和书')
   act(`pdf-${pdfPid.value}-${pdfBid.value}`, () => adminApi.exportPdf(pdfPid.value, pdfBid.value), '已提交 PDF 导出')
@@ -210,6 +219,12 @@ function fmtSize(n: number): string {
         <a v-if="ov?.zip" :href="adminApi.downloadUrl">
           <el-button type="primary" :icon="Download">下载</el-button>
         </a>
+        <el-button :loading="busy['export-pack']" @click="doExportPack">导出资源包</el-button>
+        <a v-if="ov?.pack" :href="adminApi.downloadPackUrl">
+          <el-button type="primary" :icon="Download">下载资源包</el-button>
+        </a>
+        <el-button :loading="busy['import-pack']" @click="doImportPack">导入资源包</el-button>
+        <input ref="packInput" type="file" accept=".zip" style="display: none" @change="onPackFile" />
       </div>
     </div>
 

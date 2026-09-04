@@ -15,6 +15,16 @@ export const adminApi = {
 
   sync: (pid = '') => postJSON<{ ok: boolean }>('api/admin/sync', { pid }),
   exportZip: () => postJSON<{ ok: boolean }>('api/admin/export'),
+  exportPack: () => postJSON<{ ok: boolean }>('api/admin/export-pack'),
+  importPack: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return fetch('api/admin/import-pack', { method: 'POST', body: fd }).then(async (r) => {
+      const data = (await r.json()) as { ok?: boolean; error?: string }
+      if (!r.ok) throw new Error(data.error || `请求失败 ${r.status}`)
+      return data
+    })
+  },
   exportPdf: (pid: string, bid: string) => postJSON<{ ok: boolean }>('api/admin/pdf', { pid, bid }),
 
   saveProject: (p: {
@@ -44,5 +54,6 @@ export const adminApi = {
   saveNote: (pid: string, name: string, content: string) =>
     postJSON<{ ok: boolean; name: string }>('api/admin/note', { pid, name, content }),
 
-  downloadUrl: 'api/admin/download'
+  downloadUrl: 'api/admin/download',
+  downloadPackUrl: 'api/admin/download-pack'
 }

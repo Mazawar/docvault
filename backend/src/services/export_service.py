@@ -139,12 +139,13 @@ def export_zip(logcb=print):
     out = config.DIST / f'DocVault-offline-{stamp}.zip'
     tmp_zip = config.DIST / f'.{out.name}.tmp'
     with zipfile.ZipFile(tmp_zip, 'w', zipfile.ZIP_STORED) as z:
-        for root in (tmp, config.PDF_DIR):
+        # 注意 arcname：站点目录在包内必须叫 site/（tmp 的实际名字是 site.tmp）
+        for root, arc_root in ((tmp, 'site'), (config.PDF_DIR, 'pdf')):
             if not root.exists():
                 continue
             for f in Path(root).rglob('*'):
                 if f.is_file():
-                    z.write(f, f.relative_to(config.DIST))
+                    z.write(f, str(Path(arc_root) / f.relative_to(root)))
     for i in range(3):
         try:
             os.replace(tmp_zip, out)

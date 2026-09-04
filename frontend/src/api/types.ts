@@ -97,6 +97,8 @@ export interface Overview {
   pdfs: string[]
   zip: string | null
   zipSize: number
+  pack?: string | null
+  packSize?: number
   notes: NoteItem[]
   jobs: Job[]
 }

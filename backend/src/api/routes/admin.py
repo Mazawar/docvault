@@ -1,12 +1,13 @@
 """管理接口（控制器层）：项目 CRUD / 同步 / 上传 / 笔记 / PDF / 离线包 / 任务。"""
 import re
+import time
 from pathlib import Path
 from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from ...core import config
 from ...models import repository
-from ...services import (export_service, job_service, pdf_service,
+from ...services import (export_service, job_service, pack_service, pdf_service,
                          sync_service)
 
 router = APIRouter(prefix='/api/admin', tags=['admin'])
@@ -47,6 +48,7 @@ def overview():
         projects.append({**p, 'books': [{'id': b['id'], 'title': b['title'], 'n': b['n']}
                                         for b in books]})
     z = export_service.latest_zip()
+    pk = pack_service.latest_pack()
     notes = []
     for up in [p for p in projects if p['type'] == 'upload']:
         ndir = config.UPLOADS / up['id']
@@ -57,6 +59,8 @@ def overview():
             'pdfs': pdf_service.list_pdfs(),
             'zip': z.name if z else None,
             'zipSize': z.stat().st_size if z else 0,
+            'pack': pk.name if pk else None,
+            'packSize': pk.stat().st_size if pk else 0,
             'notes': notes,
             'jobs': repository.jobs_recent(8)}
 
@@ -87,6 +91,32 @@ def download():
     if not z:
         raise HTTPException(status_code=404, detail='尚未导出离线包')
     return FileResponse(z, filename=z.name)
+
+
+@router.post('/export-pack')
+def export_pack_route():
+    job_service.start_job('export-pack',
+                          lambda logcb: pack_service.export_pack(False, logcb))
+    return {'ok': True}
+
+
+@router.get('/download-pack')
+def download_pack():
+    f = pack_service.latest_pack()
+    if not f:
+        raise HTTPException(status_code=404, detail='尚未导出资源包')
+    return FileResponse(f, filename=f.name)
+
+
+@router.post('/import-pack')
+async def import_pack(file: UploadFile = File(...)):
+    config.DIST.mkdir(parents=True, exist_ok=True)
+    tmp = config.DIST / f'.import-{int(time.time())}.zip'
+    with open(tmp, 'wb') as w:
+        w.write(await file.read())
+    job_service.start_job('import-pack',
+                          lambda logcb: pack_service.import_pack(tmp, logcb))
+    return {'ok': True}
 
 
 @router.post('/upload')
