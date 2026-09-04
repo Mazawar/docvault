@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Moon, Sunny, Setting } from '@element-plus/icons-vue'
+import { Moon, Sunny, Reading, Search } from '@element-plus/icons-vue'
 import { useThemeStore } from '@/stores/theme'
 import { isStatic, type IndexPayload } from '@/api/http'
 import { getIndex, hitUrl, searchAll } from '@/api/reading'
@@ -17,7 +17,7 @@ const inputEl = ref<HTMLInputElement | null>(null)
 let timer: number | null = null
 let seq = 0
 
-/* ---- 书籍切换器（全局，任意页面可跳书） ---- */
+/* ---- 书籍切换器 ---- */
 const idx = ref<IndexPayload | null>(null)
 getIndex().then((i) => (idx.value = i))
 
@@ -30,6 +30,9 @@ const currentBook = computed(() => {
 function onSwitchBook(v: string) {
   if (v) router.push('/read/' + v + '/')
 }
+
+/* ---- 导航链接激活态 ---- */
+const path = computed(() => route.path)
 
 /* ---- Ctrl+K 全文搜索下拉 ---- */
 async function run() {
@@ -66,6 +69,10 @@ function onTheme() {
   theme.toggle()
 }
 
+function focusSearch() {
+  nextTick(() => inputEl.value?.focus())
+}
+
 watch(q, () => {
   if (!q.value.trim()) boxOpen.value = false
 })
@@ -73,30 +80,37 @@ watch(() => route.fullPath, () => {
   boxOpen.value = false
 })
 
-defineExpose({
-  focus() {
-    nextTick(() => inputEl.value?.focus())
-  }
-})
+defineExpose({ focus: focusSearch })
 </script>
 
 <template>
   <header
-    class="fixed inset-x-0 top-0 z-80 flex h-[var(--nav-h)] items-center gap-2.5 border-b border-[var(--divider)] bg-[var(--bg)]/85 px-3 backdrop-blur-md md:gap-4 md:px-5"
+    class="fixed inset-x-0 top-0 z-80 flex h-[var(--nav-h)] items-center border-b border-[var(--divider)] bg-[var(--bg)]/85 pl-4 pr-4 backdrop-blur-md md:pl-6"
   >
-    <a class="flex items-center gap-2 whitespace-nowrap" href="#/">
+    <a class="mr-5 flex items-center gap-2 whitespace-nowrap" href="#/">
       <span class="logo-mark"></span>
-      <span class="text-[15.5px] font-bold tracking-tight text-[var(--text-1)]">DocVault</span>
+      <span class="text-[15px] font-bold tracking-tight text-[var(--text-1)]">DocVault</span>
     </a>
+
+    <nav class="navlinks h-full">
+      <RouterLink to="/" class="navlink" :class="{ on: path === '/' }">首页</RouterLink>
+      <RouterLink to="/search" class="navlink" :class="{ on: path === '/search' }">搜索</RouterLink>
+      <RouterLink v-if="!isStatic()" to="/admin" class="navlink" :class="{ on: path === '/admin' }">管理</RouterLink>
+    </nav>
+
+    <span class="flex-1"></span>
 
     <el-select
       :model-value="currentBook"
-      placeholder="切换书籍…"
+      placeholder="选择书籍"
       filterable
       class="booksel"
       size="default"
       @change="onSwitchBook"
     >
+      <template #prefix>
+        <el-icon class="text-[var(--text-3)]"><Reading /></el-icon>
+      </template>
       <el-option-group v-for="p in idx?.projects" :key="p.id" :label="p.name">
         <el-option
           v-for="b in p.books"
@@ -112,15 +126,14 @@ defineExpose({
       </el-option-group>
     </el-select>
 
-    <span class="flex-1"></span>
-
-    <div class="searchwrap relative">
+    <div class="searchwrap relative ml-2">
+      <el-icon class="sicon"><Search /></el-icon>
       <input
         ref="inputEl"
         v-model="q"
         placeholder="搜索… Ctrl+K"
         autocomplete="off"
-        class="w-28 rounded-md border border-[var(--divider)] bg-[var(--bg-alt)] px-3 py-1.5 text-[13px] outline-none transition-all focus:w-60 focus:border-[var(--text-3)] focus:bg-[var(--bg)] md:w-48"
+        class="w-28 rounded-md bg-[var(--bg-soft)] py-1.5 pl-8 pr-3 text-[13px] outline-none transition-all placeholder:text-[var(--text-3)] focus:w-60 focus:bg-[var(--bg)] focus:shadow-[0_0_0_1px_var(--divider)] md:w-48"
         @input="onInput"
         @keydown="onKeydown"
       />
@@ -137,9 +150,6 @@ defineExpose({
     <button class="tbtn" title="切换主题" @click="theme.init(), theme.toggle()">
       <el-icon><Moon v-if="!theme.dark" /><Sunny v-else /></el-icon>
     </button>
-    <a v-if="!isStatic()" class="adminlink" href="#/admin" title="资源管理">
-      <el-icon><Setting /></el-icon><span class="ml-1 hidden text-[13px] md:inline">管理</span>
-    </a>
   </header>
 </template>
 
@@ -151,23 +161,71 @@ defineExpose({
   background: var(--brand);
   display: inline-block;
 }
+.navlinks {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+.navlink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 13.5px;
+  color: var(--text-2);
+  transition: color 0.15s;
+}
+.navlink:hover {
+  color: var(--text-1);
+}
+.navlink.on {
+  color: var(--text-1);
+  font-weight: 600;
+}
+.navlink.on::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--brand);
+}
 .booksel {
-  width: 140px;
+  width: 150px;
 }
 @media (min-width: 768px) {
   .booksel {
-    width: 220px;
+    width: 200px;
   }
 }
 .booksel :deep(.el-select__wrapper) {
-  background: var(--bg-alt);
-  box-shadow: 0 0 0 1px var(--divider) inset;
+  background: transparent;
+  box-shadow: none;
   border-radius: 6px;
   min-height: 32px;
   font-size: 13px;
+  transition: background 0.15s;
+}
+.booksel :deep(.el-select__wrapper:hover) {
+  background: var(--bg-soft);
 }
 .booksel :deep(.el-select__wrapper.is-focused) {
-  box-shadow: 0 0 0 1px var(--text-3) inset;
+  background: var(--bg-soft);
+  box-shadow: none;
+}
+.sicon {
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  font-size: 13px;
+  pointer-events: none;
+}
+.searchwrap input {
+  transition: width 0.2s, background 0.2s, box-shadow 0.2s;
 }
 .tbtn {
   display: inline-flex;
@@ -175,6 +233,7 @@ defineExpose({
   justify-content: center;
   width: 32px;
   height: 32px;
+  margin-left: 4px;
   border: none;
   background: transparent;
   color: var(--text-2);
@@ -186,22 +245,6 @@ defineExpose({
 .tbtn:hover {
   color: var(--text-1);
   background: var(--bg-soft);
-}
-.adminlink {
-  display: inline-flex;
-  align-items: center;
-  color: var(--text-2);
-  font-size: 13px;
-  white-space: nowrap;
-  padding: 5px 8px;
-  border-radius: 6px;
-}
-.adminlink:hover {
-  color: var(--text-1);
-  background: var(--bg-soft);
-}
-.searchwrap input {
-  transition: width 0.2s, border 0.2s, background 0.2s;
 }
 .dropdown {
   position: absolute;
@@ -256,6 +299,9 @@ defineExpose({
 @media (max-width: 900px) {
   .dropdown {
     width: 300px;
+  }
+  .booksel {
+    width: 110px;
   }
 }
 </style>
