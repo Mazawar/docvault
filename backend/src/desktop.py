@@ -23,8 +23,9 @@ def _start_server(port):
     cfg = uvicorn.Config(app, host='127.0.0.1', port=port, log_level='warning',
                          loop='asyncio', http='h11')
     server = uvicorn.Server(cfg)
-    threading.Thread(target=server.run, daemon=True, name='dv-web').start()
-    return server
+    th = threading.Thread(target=server.run, daemon=True, name='dv-web')
+    th.start()
+    return server, th
 
 
 def _wait_ready(port, timeout=15):
@@ -42,9 +43,10 @@ def _wait_ready(port, timeout=15):
 def run(browser=False, port=0):
     database.init()
     port = port or _free_port()
-    server = _start_server(port)
+    server, thread = _start_server(port)
     if not _wait_ready(port):
         print('server failed to start', flush=True)
+        server.should_exit = True
         return
     url = f'http://127.0.0.1:{port}/'
 
@@ -62,7 +64,9 @@ def run(browser=False, port=0):
     webbrowser.open(url)
     print(f'DocVault running at {url}  (Ctrl+C 退出)', flush=True)
     try:
-        while server.is_alive():
+        # uvicorn.Server 没有 is_alive()（那是 threading.Thread 的 API），
+        # 常驻判断要用工作线程存活 + 服务未退出
+        while thread.is_alive() and not server.should_exit:
             time.sleep(0.5)
     except KeyboardInterrupt:
         server.should_exit = True
