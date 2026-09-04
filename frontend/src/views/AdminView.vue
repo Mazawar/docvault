@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Delete, Edit, Download, Upload } from '@element-plus/icons-vue'
+import { Plus, Refresh, Delete, Edit, Download, Upload, MoreFilled } from '@element-plus/icons-vue'
 import { adminApi } from '@/api/admin'
 import { modeRef } from '@/api/http'
 import type { Overview, ProjectFull } from '@/api/types'
 
+const router = useRouter()
 const ov = ref<Overview | null>(null)
 const staticMode = computed(() => modeRef.value === 'static')
 let timer: number | null = null
@@ -16,7 +18,7 @@ async function refresh() {
 }
 
 onMounted(async () => {
-  if (staticMode) return
+  if (staticMode.value) return
   await refresh()
   timer = window.setInterval(refresh, 3000)
 })
@@ -33,6 +35,7 @@ async function act(key: string, fn: () => Promise<unknown>, okMsg: string) {
     await fn()
     ElMessage.success(okMsg)
     setTimeout(refresh, 600)
+    return true
   } catch (e) {
     ElMessage.error((e as Error).message)
   } finally {
@@ -47,6 +50,14 @@ const doPdf = () => {
   if (!pdfPid.value || !pdfBid.value) return ElMessage.warning('选择项目和书')
   act(`pdf-${pdfPid.value}-${pdfBid.value}`, () => adminApi.exportPdf(pdfPid.value, pdfBid.value), '已提交 PDF 导出')
 }
+
+/* ---------- 统计 ---------- */
+const stats = computed(() => {
+  const ps = ov.value?.projects || []
+  const books = ps.reduce((s, p) => s + p.books.length, 0)
+  const articles = ps.reduce((s, p) => s + p.books.reduce((s2, b) => s2 + b.n, 0), 0)
+  return { projects: ps.length, books, articles }
+})
 
 /* ---------- 项目编辑 ---------- */
 const formOpen = ref(false)
@@ -170,95 +181,146 @@ function fmtSize(n: number): string {
     <el-alert
       v-if="staticMode"
       title="离线包模式：管理功能不可用"
-      description="当前运行在导出的静态离线包上，同步/上传/导出需要联机版的 DocVault。"
+      description="当前运行在导出的静态资源包上。同步、上传、导出需要在联网环境的 DocVault 中操作。"
       type="info"
       show-icon
       :closable="false"
-      class="mb-4"
+      class="mb-5"
     />
 
-    <div class="card">
-      <h2>项目资源</h2>
-      <el-table :data="ov?.projects || []" size="small" stripe>
-        <el-table-column label="名称" min-width="140">
-          <template #default="{ row }">
-            <b>{{ row.name }}</b>
-            <el-tag v-if="row.type === 'upload'" size="small" class="ml-1.5">上传</el-tag>
+    <!-- 页头：标题 + 统计 + 主操作 -->
+    <div class="pagehead">
+      <div>
+        <h1>资源管理</h1>
+        <div class="stats">
+          <span>{{ stats.projects }} 个项目</span>
+          <span class="dot"></span>
+          <span>{{ stats.books }} 本书</span>
+          <span class="dot"></span>
+          <span>{{ stats.articles }} 篇文章</span>
+          <template v-if="ov?.zip">
+            <span class="dot"></span>
+            <span>离线包 {{ ov.zip }}（{{ fmtSize(ov.zipSize) }}）</span>
           </template>
-        </el-table-column>
-        <el-table-column prop="type" label="类型" width="80" />
-        <el-table-column label="内容" min-width="200">
-          <template #default="{ row }">
-            <span class="mut">{{ row.books.map((b: { title: string; n: number }) => `${b.title}(${b.n})`).join('、') || '尚未同步' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="updated" label="同步于" width="130">
-          <template #default="{ row }"><span class="mut">{{ row.updated || '-' }}</span></template>
-        </el-table-column>
-        <el-table-column label="操作" width="230" fixed="right">
-          <template #default="{ row }">
-            <el-button size="small" :icon="Refresh" :loading="busy['sync-' + row.id]" @click="syncOne(row.id)">同步</el-button>
-            <el-button size="small" :icon="Edit" @click="editProject(row.id)">编辑</el-button>
-            <el-button size="small" type="danger" plain :icon="Delete" @click="delProject(row.id)">删</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div class="mt-3 flex flex-wrap items-center gap-2.5">
-        <el-button type="primary" :icon="Plus" @click="newProject">新增项目</el-button>
+        </div>
+      </div>
+      <div class="actions">
         <el-button :icon="Refresh" :loading="busy['sync-all']" @click="syncAll">全部同步</el-button>
         <el-button :loading="busy.export" @click="doExport">导出离线包</el-button>
-        <a v-if="ov?.zip" :href="adminApi.downloadUrl"><el-button :icon="Download">下载 {{ ov.zip }}</el-button></a>
-        <span v-if="ov?.zip" class="mut">{{ fmtSize(ov.zipSize) }}</span>
+        <a v-if="ov?.zip" :href="adminApi.downloadUrl">
+          <el-button type="primary" :icon="Download">下载</el-button>
+        </a>
       </div>
     </div>
 
-    <div class="card">
-      <h2>笔记编辑</h2>
-      <div class="mb-2.5 flex flex-wrap items-center gap-2.5">
-        <el-select v-model="notePid" placeholder="项目" class="w-36" @change="noteName = ''">
-          <el-option v-for="p in notePidList" :key="p.id" :value="p.id" :label="p.name" />
-        </el-select>
-        <el-select v-model="noteName" placeholder="＋ 新笔记…" filterable allow-create class="w-52" @change="loadNote">
-          <el-option v-for="n in noteList" :key="n.pid + '/' + n.name" :value="n.name" :label="n.name" />
-        </el-select>
-        <el-button type="primary" :loading="busy.note" @click="saveNote">💾 保存并发布</el-button>
+    <!-- 项目卡片栅格 -->
+    <div class="projgrid">
+      <div v-for="p in ov?.projects" :key="p.id" class="projcard">
+        <div class="projhead">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <b class="truncate text-[15px]">{{ p.name }}</b>
+              <span class="ptype">{{ p.type === 'upload' ? '上传' : 'GitHub' }}</span>
+            </div>
+            <div class="mut mt-0.5 truncate">{{ p.type === 'github' ? p.repo : '本地目录' }} · 同步于 {{ p.updated || '从未' }}</div>
+          </div>
+          <el-dropdown trigger="click" @command="(c: string) => c === 'edit' ? editProject(p.id) : delProject(p.id)">
+            <el-button text :icon="MoreFilled" class="morebtn" />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="edit" :icon="Edit">编辑</el-dropdown-item>
+                <el-dropdown-item command="del" :icon="Delete" divided>删除</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+        <div class="flex flex-wrap gap-1.5 py-3">
+          <el-tag
+            v-for="b in p.books"
+            :key="b.id"
+            class="booktag"
+            @click="router.push(`/read/${p.id}/${b.id}/`)"
+          >
+            {{ b.title }} · {{ b.n }}
+          </el-tag>
+          <span v-if="!p.books.length" class="mut text-xs">尚未同步</span>
+        </div>
+        <div class="projfoot">
+          <span class="mut">{{ p.books.length }} 本书</span>
+          <el-button
+            size="small"
+            :icon="Refresh"
+            :loading="busy['sync-' + p.id]"
+            @click="syncOne(p.id)"
+          >同步</el-button>
+        </div>
       </div>
-      <el-input v-model="noteText" type="textarea" :rows="12" placeholder="# 用 Markdown 写点什么..." />
-      <div class="mut mt-1.5">支持 GFM / 代码高亮 / [!TIP] 提示块，保存后自动同步发布</div>
+
+      <button class="addcard" @click="newProject">
+        <el-icon :size="18"><Plus /></el-icon>
+        添加项目
+      </button>
     </div>
 
-    <div class="card">
-      <h2>导出 PDF</h2>
-      <div class="flex flex-wrap items-center gap-2.5">
-        <el-select v-model="pdfPid" placeholder="项目" class="w-56" @change="pdfBid = ''">
-          <el-option v-for="p in ov?.projects" :key="p.id" :value="p.id" :label="p.name" />
-        </el-select>
-        <el-select v-model="pdfBid" placeholder="书" class="w-56">
-          <el-option v-for="b in pdfBooks" :key="b.id" :value="b.id" :label="`${b.title} (${b.n})`" />
-        </el-select>
-        <el-button :loading="busy.export" @click="doPdf">导出 PDF</el-button>
+    <!-- 内容与导出：双栏 -->
+    <div class="grid grid-cols-1 gap-4 py-2 lg:grid-cols-5">
+      <div class="card lg:col-span-3">
+        <h2>笔记编辑</h2>
+        <div class="mb-2.5 flex flex-wrap items-center gap-2.5">
+          <el-select v-model="notePid" placeholder="项目" class="!w-36" @change="noteName = ''">
+            <el-option v-for="p in notePidList" :key="p.id" :value="p.id" :label="p.name" />
+          </el-select>
+          <el-select v-model="noteName" placeholder="＋ 新笔记…" filterable allow-create class="!w-52" @change="loadNote">
+            <el-option v-for="n in noteList" :key="n.pid + '/' + n.name" :value="n.name" :label="n.name" />
+          </el-select>
+          <el-button type="primary" :loading="busy.note" @click="saveNote">保存并发布</el-button>
+        </div>
+        <el-input v-model="noteText" type="textarea" :rows="10" placeholder="# 用 Markdown 写点什么..." />
+        <div class="mut mt-1.5">支持 GFM / 代码高亮 / [!TIP] 提示块，保存后自动同步发布</div>
       </div>
-      <div class="mut mt-2">已有 PDF：{{ ov?.pdfs.join('　') || '无' }}</div>
+
+      <div class="col flex flex-col gap-4 lg:col-span-2">
+        <div class="card">
+          <h2>上传附件</h2>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <el-select v-model="upPid" placeholder="目标项目" class="!w-44">
+              <el-option v-for="p in uploadProjectList" :key="p.id" :value="p.id" :label="p.name" />
+            </el-select>
+            <el-upload :auto-upload="false" multiple :on-change="onFileChange" :show-file-list="false">
+              <el-button :icon="Upload">选择文件</el-button>
+            </el-upload>
+          </div>
+          <div v-if="upFiles.length" class="mut mt-2">{{ upFiles.map((f) => f.name).join('、') }}</div>
+          <el-button
+            class="mt-2.5"
+            type="primary"
+            plain
+            :loading="busy.upload"
+            :disabled="!upFiles.length"
+            @click="doUpload"
+          >上传并同步</el-button>
+          <div class="mut mt-1.5">.md 自动成书，其它文件作为附件</div>
+        </div>
+
+        <div class="card">
+          <h2>导出 PDF</h2>
+          <div class="flex flex-wrap items-center gap-2.5">
+            <el-select v-model="pdfPid" placeholder="项目" class="!w-44" @change="pdfBid = ''">
+              <el-option v-for="p in ov?.projects" :key="p.id" :value="p.id" :label="p.name" />
+            </el-select>
+            <el-select v-model="pdfBid" placeholder="书" class="!w-44">
+              <el-option v-for="b in pdfBooks" :key="b.id" :value="b.id" :label="`${b.title} (${b.n})`" />
+            </el-select>
+          </div>
+          <el-button class="mt-2.5" :loading="busy.export" @click="doPdf">导出整本书</el-button>
+          <div class="mut mt-2 truncate">已有：{{ ov?.pdfs.join('　') || '无' }}</div>
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>上传附件</h2>
-      <div class="flex flex-wrap items-center gap-2.5">
-        <el-select v-model="upPid" placeholder="目标项目" class="w-56">
-          <el-option v-for="p in uploadProjectList" :key="p.id" :value="p.id" :label="p.name" />
-        </el-select>
-        <el-upload :auto-upload="false" multiple :on-change="(_, fs) => onFileChange(fs)" :show-file-list="false">
-          <el-button :icon="Upload">选择文件</el-button>
-        </el-upload>
-        <span v-if="upFiles.length" class="mut">{{ upFiles.map((f) => f.name).join(', ') }}</span>
-        <el-button type="primary" :loading="busy.upload" @click="doUpload">上传</el-button>
-      </div>
-      <div class="mut mt-1.5">.md 文件自动成书，其它文件作为附件存放</div>
-    </div>
-
-    <div class="card">
+    <div class="card mt-4">
       <h2>任务队列</h2>
-      <pre class="jobpre">{{ (ov?.jobs || []).length ? '' : '(暂无任务)' }}<template v-for="j in ov?.jobs" :key="j.id"><span>{{ j.status === 'done' ? '✅' : j.status === 'error' ? '❌' : '⏳' }} {{ j.name }}  {{ j.created }} → {{ j.finished || '…' }}</span>
+      <pre class="jobpre">{{ (ov?.jobs || []).length ? '' : '(暂无任务)' }}<template v-for="j in ov?.jobs" :key="j.id"><span>{{ j.status === 'done' ? '✓' : j.status === 'error' ? '✗' : '…' }} {{ j.name }}  {{ j.created }} → {{ j.finished || '进行中' }}</span>
 <span v-for="(l, i) in j.log" :key="i" class="mut">  {{ l }}</span>
 </template></pre>
     </div>
@@ -296,7 +358,7 @@ function fmtSize(n: number): string {
       </el-form>
       <template #footer>
         <el-button @click="formOpen = false">取消</el-button>
-        <el-button type="primary" @click="saveProject">💾 保存并同步</el-button>
+        <el-button type="primary" @click="saveProject">保存并同步</el-button>
       </template>
     </el-dialog>
   </div>
@@ -304,20 +366,124 @@ function fmtSize(n: number): string {
 
 <style scoped>
 .wrap {
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: calc(60px + 24px) 18px 80px;
+  padding: calc(var(--nav-h) + 28px) 20px 80px;
+}
+.pagehead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.pagehead h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.stats .dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.projgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.projcard {
+  border: 1px solid var(--divider);
+  border-radius: 10px;
+  padding: 14px 16px 10px;
+  background: var(--bg);
+  transition: border-color 0.15s;
+}
+.projcard:hover {
+  border-color: var(--text-3);
+}
+.projhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.morebtn {
+  color: var(--text-3);
+}
+.ptype {
+  font-size: 11px;
+  color: var(--text-3);
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  padding: 0 5px;
+  white-space: nowrap;
+}
+.booktag {
+  cursor: pointer;
+  border-radius: 5px;
+  background: var(--bg-soft);
+  border: 1px solid var(--divider);
+  color: var(--text-2);
+  font-weight: 400;
+}
+.booktag:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+.projfoot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--divider);
+  padding-top: 8px;
+  margin-top: 2px;
+}
+.addcard {
+  border: 1px dashed var(--divider);
+  border-radius: 10px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.addcard:hover {
+  border-color: var(--text-3);
+  color: var(--text-1);
 }
 .card {
-  background: var(--bg);
   border: 1px solid var(--divider);
-  border-radius: 14px;
-  padding: 18px 22px;
-  margin-bottom: 16px;
+  border-radius: 10px;
+  padding: 16px 18px;
+  background: var(--bg);
 }
 .card > h2 {
   margin: 0 0 12px;
-  font-size: 15.5px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--text-1);
 }
 .mut {
@@ -327,10 +493,10 @@ function fmtSize(n: number): string {
 .jobpre {
   background: var(--bg-alt);
   border: 1px solid var(--divider);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 12px;
   font-size: 12px;
-  max-height: 260px;
+  max-height: 240px;
   overflow: auto;
   white-space: pre-wrap;
   color: var(--text-2);
