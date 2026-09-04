@@ -31,10 +31,11 @@ def _prow(r):
 
 def upsert_project(p, sort=None):
     with database._lock, database.connect() as c:
+        sv = sort if sort is not None else p.get('sort')
         c.execute("INSERT INTO projects(id,name,type,repo,root,books_json,sort) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, type=excluded.type, repo=excluded.repo, root=excluded.root, books_json=excluded.books_json, sort=COALESCE(?, projects.sort)",
                   (p['id'], p['name'], p['type'], p.get('repo', ''), p.get('root', '.'),
                    json.dumps(p.get('books') or {}, ensure_ascii=False),
-                   sort if sort is not None else p.get('sort')))
+                   sv, sv))
 
 
 def delete_project(pid):

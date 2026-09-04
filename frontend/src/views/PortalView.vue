@@ -29,15 +29,13 @@ function fmtDay(s: string): string {
 
 <template>
   <div class="mx-auto max-w-5xl px-6">
-    <!-- Hero：克制、去装饰 -->
-    <section class="border-b border-[var(--divider)] pb-12 pt-20">
-      <h1 class="m-0 text-4xl font-bold tracking-tight text-[var(--text-1)]">
-        DocVault
-      </h1>
-      <p class="mb-7 mt-3 max-w-xl text-[15px] leading-relaxed text-[var(--text-2)]">
-        把值得反复读的技术文档缓存到本地 —— 联网时同步更新，离线时开箱即读。
+    <!-- Hero：VitePress 风格（渐变标题 + 需求回归） -->
+    <section class="pb-12 pt-20 text-center">
+      <h1 class="hero-title m-0 text-5xl font-bold tracking-tight">DocVault</h1>
+      <p class="mx-auto mb-7 mt-4 max-w-xl text-[17px] leading-relaxed text-[var(--text-2)]">
+        多源技术文档缓存站 —— 在线可更新，离线可携带，看过的每一篇都被记住
       </p>
-      <div class="flex gap-2.5">
+      <div class="flex justify-center gap-2.5">
         <a class="btn-pri" href="#shelf">开始阅读</a>
         <a v-if="!isStatic()" class="btn-ghost" href="#/admin">管理资源</a>
       </div>
