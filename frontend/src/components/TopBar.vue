@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Moon, Sunny, Setting, Search } from '@element-plus/icons-vue'
+import { Moon, Sunny, Setting } from '@element-plus/icons-vue'
 import { useThemeStore } from '@/stores/theme'
 import { isStatic, type IndexPayload } from '@/api/http'
 import { getIndex, hitUrl, searchAll } from '@/api/reading'
@@ -41,7 +41,7 @@ async function run() {
   }
   const my = ++seq
   const r = await searchAll(t, '')
-  if (my !== seq) return // 只保留最后一次输入的结果
+  if (my !== seq) return
   hits.value = r.slice(0, 12)
   boxOpen.value = true
 }
@@ -69,7 +69,6 @@ function onTheme() {
 watch(q, () => {
   if (!q.value.trim()) boxOpen.value = false
 })
-// 路由变化时收起下拉
 watch(() => route.fullPath, () => {
   boxOpen.value = false
 })
@@ -83,9 +82,12 @@ defineExpose({
 
 <template>
   <header
-    class="fixed inset-x-0 top-0 z-80 flex h-[60px] items-center gap-2.5 border-b border-[var(--divider)] bg-[var(--bg)]/82 px-3 backdrop-blur-md md:gap-3.5 md:px-5"
+    class="fixed inset-x-0 top-0 z-80 flex h-[var(--nav-h)] items-center gap-2.5 border-b border-[var(--divider)] bg-[var(--bg)]/85 px-3 backdrop-blur-md md:gap-4 md:px-5"
   >
-    <a class="logo whitespace-nowrap text-[17px] font-bold" href="#/">Doc<b class="text-[var(--brand)]">Vault</b></a>
+    <a class="flex items-center gap-2 whitespace-nowrap" href="#/">
+      <span class="logo-mark"></span>
+      <span class="text-[15.5px] font-bold tracking-tight text-[var(--text-1)]">DocVault</span>
+    </a>
 
     <el-select
       :model-value="currentBook"
@@ -116,9 +118,9 @@ defineExpose({
       <input
         ref="inputEl"
         v-model="q"
-        placeholder="全文搜索… Ctrl+K"
+        placeholder="搜索… Ctrl+K"
         autocomplete="off"
-        class="w-32 rounded-lg border border-[var(--divider)] bg-[var(--bg-alt)] px-3 py-1.5 text-[13px] outline-none transition-colors focus:w-64 focus:border-[var(--brand)] focus:bg-[var(--bg)] md:w-52"
+        class="w-28 rounded-md border border-[var(--divider)] bg-[var(--bg-alt)] px-3 py-1.5 text-[13px] outline-none transition-all focus:w-60 focus:border-[var(--text-3)] focus:bg-[var(--bg)] md:w-48"
         @input="onInput"
         @keydown="onKeydown"
       />
@@ -131,9 +133,7 @@ defineExpose({
         <div v-if="!hits.length" class="item mut">无结果</div>
       </div>
     </div>
-    <button class="tbtn" title="搜索" @click="inputEl?.focus()">
-      <el-icon><Search /></el-icon>
-    </button>
+
     <button class="tbtn" title="切换主题" @click="theme.init(), theme.toggle()">
       <el-icon><Moon v-if="!theme.dark" /><Sunny v-else /></el-icon>
     </button>
@@ -144,44 +144,48 @@ defineExpose({
 </template>
 
 <style scoped>
-.logo b {
-  color: var(--brand);
+.logo-mark {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--brand);
+  display: inline-block;
 }
 .booksel {
-  width: 150px;
+  width: 140px;
 }
 @media (min-width: 768px) {
   .booksel {
-    width: 230px;
+    width: 220px;
   }
 }
 .booksel :deep(.el-select__wrapper) {
   background: var(--bg-alt);
   box-shadow: 0 0 0 1px var(--divider) inset;
-  border-radius: 8px;
+  border-radius: 6px;
   min-height: 32px;
   font-size: 13px;
 }
 .booksel :deep(.el-select__wrapper.is-focused) {
-  box-shadow: 0 0 0 1px var(--brand) inset;
+  box-shadow: 0 0 0 1px var(--text-3) inset;
 }
 .tbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 30px;
-  border: 1px solid var(--divider);
-  background: var(--bg);
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
   color: var(--text-2);
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   transition: 0.15s;
 }
 .tbtn:hover {
-  color: var(--brand);
-  border-color: var(--brand);
+  color: var(--text-1);
+  background: var(--bg-soft);
 }
 .adminlink {
   display: inline-flex;
@@ -189,9 +193,12 @@ defineExpose({
   color: var(--text-2);
   font-size: 13px;
   white-space: nowrap;
+  padding: 5px 8px;
+  border-radius: 6px;
 }
 .adminlink:hover {
-  color: var(--brand);
+  color: var(--text-1);
+  background: var(--bg-soft);
 }
 .searchwrap input {
   transition: width 0.2s, border 0.2s, background 0.2s;
@@ -205,8 +212,8 @@ defineExpose({
   overflow: auto;
   background: var(--bg);
   border: 1px solid var(--divider);
-  border-radius: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   z-index: 99;
 }
 .item {
@@ -238,9 +245,9 @@ defineExpose({
 }
 .item .s :deep(mark),
 .item .s mark {
-  background: rgba(255, 208, 75, 0.45);
+  background: rgba(255, 213, 79, 0.5);
   color: inherit;
-  border-radius: 3px;
+  border-radius: 2px;
 }
 .mut {
   color: var(--text-3);

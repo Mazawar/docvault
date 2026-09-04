@@ -178,7 +178,7 @@ function fmtSize(n: number): string {
     />
 
     <div class="card">
-      <h2>📦 项目资源</h2>
+      <h2>项目资源</h2>
       <el-table :data="ov?.projects || []" size="small" stripe>
         <el-table-column label="名称" min-width="140">
           <template #default="{ row }">
@@ -206,14 +206,14 @@ function fmtSize(n: number): string {
       <div class="mt-3 flex flex-wrap items-center gap-2.5">
         <el-button type="primary" :icon="Plus" @click="newProject">新增项目</el-button>
         <el-button :icon="Refresh" :loading="busy['sync-all']" @click="syncAll">全部同步</el-button>
-        <el-button :loading="busy.export" @click="doExport">📦 导出离线包</el-button>
-        <a v-if="ov?.zip" :href="adminApi.downloadUrl"><el-button :icon="Download">⬇ 下载 {{ ov.zip }}</el-button></a>
+        <el-button :loading="busy.export" @click="doExport">导出离线包</el-button>
+        <a v-if="ov?.zip" :href="adminApi.downloadUrl"><el-button :icon="Download">下载 {{ ov.zip }}</el-button></a>
         <span v-if="ov?.zip" class="mut">{{ fmtSize(ov.zipSize) }}</span>
       </div>
     </div>
 
     <div class="card">
-      <h2>✍️ 笔记编辑</h2>
+      <h2>笔记编辑</h2>
       <div class="mb-2.5 flex flex-wrap items-center gap-2.5">
         <el-select v-model="notePid" placeholder="项目" class="w-36" @change="noteName = ''">
           <el-option v-for="p in notePidList" :key="p.id" :value="p.id" :label="p.name" />
@@ -228,7 +228,7 @@ function fmtSize(n: number): string {
     </div>
 
     <div class="card">
-      <h2>📄 导出 PDF</h2>
+      <h2>导出 PDF</h2>
       <div class="flex flex-wrap items-center gap-2.5">
         <el-select v-model="pdfPid" placeholder="项目" class="w-56" @change="pdfBid = ''">
           <el-option v-for="p in ov?.projects" :key="p.id" :value="p.id" :label="p.name" />
@@ -242,7 +242,7 @@ function fmtSize(n: number): string {
     </div>
 
     <div class="card">
-      <h2>📎 上传附件</h2>
+      <h2>上传附件</h2>
       <div class="flex flex-wrap items-center gap-2.5">
         <el-select v-model="upPid" placeholder="目标项目" class="w-56">
           <el-option v-for="p in uploadProjectList" :key="p.id" :value="p.id" :label="p.name" />
@@ -257,7 +257,7 @@ function fmtSize(n: number): string {
     </div>
 
     <div class="card">
-      <h2>⏳ 任务队列</h2>
+      <h2>任务队列</h2>
       <pre class="jobpre">{{ (ov?.jobs || []).length ? '' : '(暂无任务)' }}<template v-for="j in ov?.jobs" :key="j.id"><span>{{ j.status === 'done' ? '✅' : j.status === 'error' ? '❌' : '⏳' }} {{ j.name }}  {{ j.created }} → {{ j.finished || '…' }}</span>
 <span v-for="(l, i) in j.log" :key="i" class="mut">  {{ l }}</span>
 </template></pre>

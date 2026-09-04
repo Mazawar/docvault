@@ -31,13 +31,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl px-5 pb-24 pt-24">
-    <h1 class="mb-4 text-2xl font-bold">🔍 全文搜索</h1>
+  <div class="mx-auto max-w-3xl px-5 pb-24" style="padding-top: calc(var(--nav-h) + 36px)">
+    <h1 class="mb-5 text-xl font-bold">全文搜索</h1>
     <div class="mb-2 flex flex-wrap items-center gap-2.5">
       <input
         v-model="q"
         placeholder="输入关键词，如：AQS、redis 持久化…"
-        class="min-w-0 flex-1 rounded-lg border border-[var(--divider)] bg-[var(--bg-alt)] px-3.5 py-2 text-sm outline-none focus:border-[var(--brand)]"
+        class="min-w-0 flex-1 rounded-md border border-[var(--divider)] bg-[var(--bg-alt)] px-3.5 py-2 text-sm outline-none focus:border-[var(--text-3)]"
         @input="onInput"
         @keydown.enter="run"
       />

@@ -81,31 +81,52 @@ def _build_tmp(logcb=print) -> Path:
 
 
 def _promote(tmp: Path, logcb=print, strict=False) -> Path:
-    """把 tmp 目录替换为正式 site/。strict=True 时占用即报错（CLI 场景），
-    否则降级保留 tmp 并提示（打包场景，zip 已生成不受影响）。"""
+    """把 tmp 内容落地为正式 site/。
+
+    首选换名替换（原子、干净）；site/ 被进程占用（如内网静态服务器的 CWD）
+    导致目录无法改名时，退化为「原位清空 + 内容同步」——Windows 只锁目录
+    本身，其中的文件仍可重写，因此本地预览/内网服务器都不阻塞导出。
+    """
     site = config.SITE
     if not site.exists():
         tmp.rename(site)
         return site
-    old = config.DIST / 'site.old'
-    if old.exists():
-        shutil.rmtree(old, ignore_errors=True)
     try:
+        old = config.DIST / 'site.old'
+        if old.exists():
+            shutil.rmtree(old, ignore_errors=True)
         site.rename(old)
-    except OSError as e:
-        if strict:
-            raise RuntimeError(f'旧 site 目录被占用，无法替换（先停掉占用它的静态服务器）: {e}')
-        logcb(f'提示: 旧 site 被占用，新站暂存于 {tmp}；释放占用后重命名即可生效')
-        return tmp
-    tmp.rename(site)
-    shutil.rmtree(old, ignore_errors=True)
+        tmp.rename(site)
+        shutil.rmtree(old, ignore_errors=True)
+        return site
+    except OSError:
+        pass
+    # 原位内容同步
+    for child in site.iterdir():
+        if child.is_dir():
+            shutil.rmtree(child, ignore_errors=True)
+        else:
+            try:
+                child.unlink()
+            except OSError:
+                pass
+    copied = 0
+    for f in tmp.rglob('*'):
+        rel = f.relative_to(tmp)
+        dst = site / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if f.is_file():
+            shutil.copy2(f, dst)
+            copied += 1
+    shutil.rmtree(tmp, ignore_errors=True)
+    logcb(f'提示: site 目录被占用，已原位同步 {copied} 个文件')
     return site
 
 
 def build_site(logcb=print):
-    """生成 data/dist/site/（纯静态）。占用阻塞时按 CLI 语义报错。"""
+    """生成 data/dist/site/（纯静态）。"""
     tmp = _build_tmp(logcb)
-    site = _promote(tmp, logcb, strict=True)
+    site = _promote(tmp, logcb)
     logcb(f'site -> {site}')
     return site
 

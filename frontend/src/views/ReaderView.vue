@@ -160,7 +160,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 </script>
 
 <template>
-  <div class="flex pt-[60px]">
+  <div class="flex pt-[var(--nav-h)]">
     <div id="progress" :style="{ width: progress + '%' }"></div>
     <div class="backdrop" :class="{ show: drawerOpen }" @click="drawerOpen = false"></div>
 
