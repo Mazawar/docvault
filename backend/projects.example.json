@@ -1,0 +1,96 @@
+{
+  "projects": [
+    {
+      "id": "xiaolincoding",
+      "name": "小林 coding",
+      "type": "github",
+      "repo": "xiaolincoder/CS-Base",
+      "root": ".",
+      "books": {
+        "cs_learn": "计算机基础",
+        "network": "图解网络",
+        "os": "图解系统",
+        "mysql": "图解MySQL",
+        "redis": "图解Redis"
+      },
+      "groupTitles": {
+        "network": {
+          "1_base": "网络基础",
+          "2_http": "HTTP 篇",
+          "3_tcp": "TCP 篇",
+          "4_ip": "IP 篇",
+          "5_learn": "学习心得"
+        },
+        "os": {
+          "1_hardware": "硬件结构",
+          "2_os_structure": "操作系统结构",
+          "3_memory": "内存管理",
+          "4_process": "进程管理",
+          "5_schedule": "调度算法",
+          "6_file_system": "文件系统",
+          "7_device": "设备管理",
+          "8_network_system": "网络系统",
+          "9_linux_cmd": "Linux 命令",
+          "10_learn": "学习心得"
+        },
+        "mysql": {
+          "base": "基础篇",
+          "index": "索引篇",
+          "transaction": "事务篇",
+          "lock": "锁篇",
+          "log": "日志篇",
+          "buffer_pool": "Buffer Pool 篇"
+        },
+        "redis": {
+          "base": "基础篇",
+          "data_struct": "数据类型篇",
+          "storage": "持久化篇",
+          "module": "功能篇",
+          "cluster": "集群篇",
+          "architecture": "架构篇"
+        }
+      }
+    },
+    {
+      "id": "javaguide",
+      "name": "JavaGuide",
+      "type": "github",
+      "repo": "Snailclimb/JavaGuide",
+      "root": "docs",
+      "groupTitles": {
+        "main": {
+          "cs-basics": "计算机基础",
+          "database": "数据库",
+          "distributed-system": "分布式",
+          "system-design": "系统设计",
+          "java": "Java 核心",
+          "high-performance": "高性能",
+          "high-availability": "高可用",
+          "ai": "AI 应用开发",
+          "ai-coding": "AI 编程",
+          "interview-preparation": "面试准备",
+          "tools": "开发工具",
+          "open-source-project": "开源项目",
+          "books": "技术书籍",
+          "roadmap": "学习路线",
+          "high-quality-technical-articles": "优质技术文章",
+          "zhuanlan": "专栏",
+          "snippets": "代码片段",
+          "about-the-author": "关于作者"
+        }
+      }
+    },
+    {
+      "id": "advanced-java",
+      "name": "advanced-java 进阶扫盲",
+      "type": "github",
+      "repo": "doocs/advanced-java",
+      "root": "."
+    },
+    {
+      "id": "my-notes",
+      "name": "我的笔记",
+      "type": "upload"
+    }
+  ]
+}

@@ -43,14 +43,34 @@
 
 ## 🚀 快速开始（联网机）
 
+> 出厂**不预置任何缓存内容**——要缓存什么、缓存多少，完全由你决定。
+> `backend/projects.example.json` 里有一份示例配置（小林 coding / JavaGuide / advanced-java）可直接抄。
+
 ```bash
 git clone https://github.com/Mazawar/docvault.git && cd docvault
 pip install -r backend/requirements.txt
 
+# 1. 声明你想缓存的项目：二选一
+#    a) 编辑 backend/projects.json（参考 projects.example.json 的写法）
+#    b) 启动后在管理台 #/admin 里可视化添加
 cd backend
-python -m src.main sync all      # 1. 同步全部项目（clone + 图片本地化 + 入库）
-python -m src.main export        # 2. 打只读静态站 -> data/dist/DocVault-offline-日期.zip
-python -m src.main serve         # 3. 联网自用：http://127.0.0.1:8787
+python -m src.main sync all      # 2. 同步全部项目（clone + 图片本地化 + 入库）
+python -m src.main export        # 3. 打只读静态站 -> data/dist/DocVault-offline-日期.zip
+python -m src.main serve         # 4. 联网自用：http://127.0.0.1:8787
+```
+
+项目配置示例（写进 `backend/projects.json`）：
+
+```json
+{
+  "projects": [
+    { "id": "xiaolincoding", "name": "小林 coding", "type": "github",
+      "repo": "xiaolincoder/CS-Base", "root": ".",
+      "books": { "network": "图解网络" },
+      "groupTitles": { "network": { "1_base": "网络基础" } } },
+    { "id": "my-notes", "name": "我的笔记", "type": "upload" }
+  ]
+}
 ```
 
 打开 `http://127.0.0.1:8787` 阅读，`#/admin` 进管理台：
@@ -125,13 +145,14 @@ projects.json    首次启动的种子配置（之后以数据库为准，可在
 ## 📁 数据说明
 
 - 联机：SQLite（`backend/data/docvault.db`）是唯一事实源；`projects.json` 仅首次播种，可 `python -m src.main import` 重新导入。
+- 仓库与出厂配置**不包含任何第三方内容**；缓存哪些项目、何时同步，全部由使用者自行决定与管理。
 - 离线包内是预渲染的 JSON 数据树——静态服务器跑不了数据库，这是"一份内容、两种形态"：在线 DB ↔ 离线快照。
 - 图片按内容寻址缓存（`data/assets/`），跨项目去重；同步时自动下载文中外链图片。
 - PDF 导出用 weasyprint（Windows 需 GTK 运行库，Linux 开箱即用）；未就绪时任务会给出明确提示。
 
 ## 🙏 致谢
 
-本项目的演示数据与灵感来自这些优秀的开源教程，**感谢原作者们的无私分享**：
+`projects.example.json` 中的示例项目来自这些优秀的开源教程，**感谢原作者们的无私分享**：
 
 [小林 coding](https://xiaolincoding.com/) · [JavaGuide](https://javaguide.cn/) · [doocs/advanced-java](https://github.com/doocs/advanced-java) · 以及所有被缓存内容的原作者
 
