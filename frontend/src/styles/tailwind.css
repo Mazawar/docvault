@@ -1,0 +1,4 @@
+/* Tailwind v4 入口（必须是纯 css，@tailwindcss/vite 插件在此生成工具类） */
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));

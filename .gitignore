@@ -1,11 +1,22 @@
-# 运行时数据（数据目录建议放沙箱/服务器本地盘，见 README）
+# 运行时数据（数据目录建议放本地盘，见 README）
 data/
 data-ghosts-*/
 junk*/
-site.tmp/
-site.old/
 nohup.out
 __pycache__/
 *.pyc
 .DS_Store
 *.log
+
+# 前端
+frontend/node_modules/
+frontend/dist/
+
+# PyInstaller 产物
+build/
+dist/
+*.spec.bak
+DocVault.exe
+
+# 安全扫描工具本地状态
+.mimosa/

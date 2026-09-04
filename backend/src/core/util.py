@@ -1,6 +1,6 @@
-"""Shared helpers: md->html, image cache, ordering."""
+"""通用工具：md→html、图片抓取缓存、排序键。无包内依赖。"""
 import html as H
-import hashlib, os, re, time, urllib.parse, urllib.request
+import hashlib, ipaddress, os, re, socket, time, urllib.parse, urllib.request, urllib.error
 from pathlib import Path
 import markdown
 from markdown.extensions.toc import slugify_unicode
@@ -74,11 +74,60 @@ def asset_name(url):
     ext = os.path.splitext(path)[1].lower()
     if ext not in EXTS:
         ext = '.svg' if 'svg' in path.lower() else '.png'
-    return hashlib.sha1(url.encode()).hexdigest() + ext
+    return hashlib.sha256(url.encode()).hexdigest()[:32] + ext
+
+
+def url_allowed(url):
+    """SSRF 防护：仅 http(s)；字面 IP/localhost 严格拦截；
+    域名在无代理时按解析出的 IP 拦私网/环回/链路本地/保留段，
+    配置了系统代理时本地 DNS 可能失真（代理负责真实解析），放行交给代理。"""
+    sp = urllib.parse.urlsplit(url)
+    if sp.scheme not in ('http', 'https') or not sp.hostname:
+        return False
+    host = sp.hostname
+    try:
+        ip = ipaddress.ip_address(host)
+        return not (ip.is_private or ip.is_loopback or ip.is_link_local
+                    or ip.is_reserved or ip.is_multicast or ip.is_unspecified)
+    except ValueError:
+        pass
+    if host.lower() in ('localhost',):
+        return False
+    proxies = urllib.request.getproxies()
+    if proxies.get(sp.scheme) or proxies.get('http'):
+        return True
+    port = sp.port or (443 if sp.scheme == 'https' else 80)
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror:
+        return False
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(str(info[4][0]))
+        except ValueError:
+            return False
+        if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+                or ip.is_multicast or ip.is_unspecified):
+            return False
+    return True
+
+
+class _RedirectGuard(urllib.request.HTTPRedirectHandler):
+    """重定向目标逐一过 SSRF 校验。"""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if not url_allowed(newurl):
+            raise urllib.error.URLError('redirect blocked by SSRF guard')
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPENER = urllib.request.build_opener(_RedirectGuard)
 
 
 def fetch(url, cache_dir):
-    """Download url into cache_dir (sha1 name). Returns Path or None."""
+    """Download url into cache_dir (sha256 name). Returns Path or None."""
+    if not url_allowed(url):
+        return None
     cache_dir = Path(cache_dir)
     cache_dir.mkdir(parents=True, exist_ok=True)
     f = cache_dir / asset_name(url)
@@ -87,7 +136,7 @@ def fetch(url, cache_dir):
     safe = urllib.parse.quote(url, safe=':/?&=%+#@,;~')
     for _ in range(3):
         try:
-            data = urllib.request.urlopen(urllib.request.Request(safe, headers=UA), timeout=25).read()
+            data = _OPENER.open(urllib.request.Request(safe, headers=UA), timeout=25).read()
             if len(data) > 100:
                 tmp = f.with_suffix('.tmp')
                 tmp.write_bytes(data)
@@ -135,7 +184,7 @@ def localize_local(body, cur_dir, assets_dir, prefix='/a/'):
         if not p.exists() or not p.is_file():
             return m.group(0)
         data = p.read_bytes()
-        name = hashlib.sha1(data).hexdigest() + p.suffix.lower()
+        name = hashlib.sha256(data).hexdigest()[:32] + p.suffix.lower()
         dst = Path(assets_dir) / name
         if not dst.exists():
             dst.write_bytes(data)

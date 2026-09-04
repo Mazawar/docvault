@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+python-multipart
+markdown
+pygments
+pillow
+pywebview ; sys_platform == "win32"
+weasyprint ; sys_platform != "win32"

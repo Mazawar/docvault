@@ -1,0 +1,160 @@
+/* 正文排版（与后端渲染出的 HTML 类名对应：codehilite / vp-alert） */
+.article-body {
+  max-width: 784px;
+  margin: 0 auto;
+  padding: 34px 40px 60px;
+
+  h2,
+  h3 {
+    scroll-margin-top: calc(60px + 14px); /* 锚点定位避开固定顶栏 */
+  }
+
+  h2 {
+    font-size: 24px;
+    margin: 44px 0 16px;
+    padding-top: 24px;
+    border-top: 1px solid var(--divider);
+  }
+
+  h3 {
+    font-size: 19px;
+    margin: 32px 0 12px;
+  }
+
+  p {
+    margin: 14px 0;
+    color: var(--text-1);
+  }
+
+  li {
+    margin: 6px 0;
+  }
+
+  img {
+    max-width: 100%;
+    border-radius: 10px;
+    margin: 12px auto;
+    display: block;
+    border: 1px solid var(--divider);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13.5px;
+    margin: 16px 0;
+    display: block;
+    overflow-x: auto;
+  }
+
+  th,
+  td {
+    border: 1px solid var(--divider);
+    padding: 7px 12px;
+  }
+
+  th {
+    background: var(--bg-soft);
+  }
+
+  blockquote {
+    margin: 18px 0;
+    padding: 2px 18px;
+    border-left: 3px solid var(--brand);
+    color: var(--text-2);
+  }
+
+  :not(pre) > code {
+    background: var(--inline-code-bg);
+    color: var(--inline-code);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.9em;
+    font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', ui-monospace, Consolas, 'Noto Sans Mono CJK SC', monospace;
+  }
+
+  .codehilite {
+    position: relative;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 18px 0;
+    overflow-x: auto;
+
+    pre {
+      margin: 0;
+      font-size: 13.5px;
+      line-height: 1.65;
+    }
+  }
+
+  .copybtn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border: 1px solid var(--code-border);
+    background: var(--bg);
+    color: var(--text-3);
+    border-radius: 6px;
+    font-size: 11px;
+    padding: 3px 9px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .codehilite:hover .copybtn {
+    opacity: 1;
+  }
+
+  .copybtn:hover {
+    color: var(--brand);
+    border-color: var(--brand);
+  }
+
+  .vp-alert {
+    margin: 18px 0;
+    padding: 14px 18px;
+    border: 1px solid var(--divider);
+    border-left: 4px solid var(--brand);
+    border-radius: 8px;
+    background: var(--bg-soft);
+    color: var(--text-2);
+    font-size: 14.5px;
+
+    p {
+      margin: 4px 0;
+    }
+
+    .vp-alert-title {
+      font-weight: 700;
+      color: var(--text-1);
+      font-size: 14px;
+    }
+  }
+
+  .vp-alert.note {
+    border-left-color: #3b82f6;
+  }
+  .vp-alert.tip {
+    border-left-color: var(--green);
+  }
+  .vp-alert.important {
+    border-left-color: var(--purple);
+  }
+  .vp-alert.warning {
+    border-left-color: var(--yellow);
+  }
+  .vp-alert.danger {
+    border-left-color: var(--red);
+  }
+
+  del {
+    color: #999;
+  }
+}
