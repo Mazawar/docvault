@@ -45,10 +45,18 @@ async function act(key: string, fn: () => Promise<unknown>, okMsg: string) {
 
 const syncOne = (pid: string) => act(`sync-${pid}`, () => adminApi.sync(pid), `已提交同步：${pid}`)
 const syncAll = () => act('sync-all', () => adminApi.sync(''), '已提交全量同步')
-const doExport = () => act('export', () => adminApi.exportZip(), '已提交离线包导出')
-const doExportPack = () => act('export-pack', () => adminApi.exportPack(), '已提交资源包导出')
+const doExport = () => act('export', () => adminApi.exportZip(), '已提交静态站生成')
+const doExportPack = () => act('export-pack', () => adminApi.exportPack(), '已提交资源包生成')
 const packInput = ref<HTMLInputElement | null>(null)
-const doImportPack = () => packInput.value?.click()
+const doImportPack = () => {
+  ElMessageBox.confirm(
+    '导入按项目合并：包内项目覆盖同 id 的现有项目，图片/笔记/PDF 跳过已有文件。继续导入？',
+    '导入资源包',
+    { confirmButtonText: '选择文件导入', cancelButtonText: '取消', type: 'warning' }
+  )
+    .then(() => packInput.value?.click())
+    .catch(() => {})
+}
 const onPackFile = (e: Event) => {
   const f = (e.target as HTMLInputElement).files?.[0]
   if (!f) return
@@ -189,8 +197,8 @@ function fmtSize(n: number): string {
   <div class="wrap">
     <el-alert
       v-if="staticMode"
-      title="离线包模式：管理功能不可用"
-      description="当前运行在导出的静态资源包上。同步、上传、导出需要在联网环境的 DocVault 中操作。"
+      title="只读模式：管理功能不可用"
+      description="当前运行在生成的静态站上。同步、上传、生成需要在完整部署的 DocVault 中操作。"
       type="info"
       show-icon
       :closable="false"
@@ -207,23 +215,11 @@ function fmtSize(n: number): string {
           <span>{{ stats.books }} 本书</span>
           <span class="dot"></span>
           <span>{{ stats.articles }} 篇文章</span>
-          <template v-if="ov?.zip">
-            <span class="dot"></span>
-            <span>离线包 {{ ov.zip }}（{{ fmtSize(ov.zipSize) }}）</span>
-          </template>
-        </div>
+      </div>
       </div>
       <div class="actions">
         <el-button :icon="Refresh" :loading="busy['sync-all']" @click="syncAll">全部同步</el-button>
-        <el-button :loading="busy.export" @click="doExport">导出离线包</el-button>
-        <a v-if="ov?.zip" :href="adminApi.downloadUrl">
-          <el-button type="primary" :icon="Download">下载</el-button>
-        </a>
-        <el-button :loading="busy['export-pack']" @click="doExportPack">导出资源包</el-button>
-        <a v-if="ov?.pack" :href="adminApi.downloadPackUrl">
-          <el-button type="primary" :icon="Download">下载资源包</el-button>
-        </a>
-        <el-button :loading="busy['import-pack']" @click="doImportPack">导入资源包</el-button>
+        <el-button type="primary" :icon="Upload" :loading="busy['import-pack']" @click="doImportPack">导入资源包</el-button>
         <input ref="packInput" type="file" accept=".zip" style="display: none" @change="onPackFile" />
       </div>
     </div>
@@ -275,6 +271,37 @@ function fmtSize(n: number): string {
         <el-icon :size="18"><Plus /></el-icon>
         添加项目
       </button>
+    </div>
+
+    <!-- 导出中心：两种产物，用途一目了然 -->
+    <div class="card">
+      <h2>导出中心</h2>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div class="packcard">
+          <div class="ptitle">📦 数据资源包 <el-tag size="small" type="success">推荐</el-tag></div>
+          <p class="pdesc">完整数据：数据库 + 图片 + 笔记 + PDF + 前端产物。拷到内网机器导入 DocVault，即为完整实例——搜索、管理、笔记、阅读记忆全部可用，无需联网和 npm。</p>
+          <div class="prow">
+            <el-button size="small" :loading="busy['export-pack']" @click="doExportPack">生成资源包</el-button>
+            <a v-if="ov?.pack" :href="adminApi.downloadPackUrl">
+              <el-button size="small" type="primary" :icon="Download">下载资源包</el-button>
+            </a>
+            <span v-if="ov?.pack" class="pmut">{{ ov.pack }}（{{ fmtSize(ov.packSize) }}）</span>
+            <span v-else-if="!busy['export-pack']" class="pmut">尚未生成</span>
+          </div>
+        </div>
+        <div class="packcard">
+          <div class="ptitle">🌐 只读静态站</div>
+          <p class="pdesc">预渲染纯静态站点：不需要本程序，解压后 nginx / 任意静态服务器直接浏览。适合分享给没有安装 DocVault 的人。</p>
+          <div class="prow">
+            <el-button size="small" :loading="busy.export" @click="doExport">生成静态站</el-button>
+            <a v-if="ov?.zip" :href="adminApi.downloadUrl">
+              <el-button size="small" type="primary" :icon="Download">下载静态站</el-button>
+            </a>
+            <span v-if="ov?.zip" class="pmut">{{ ov.zip }}（{{ fmtSize(ov.zipSize) }}）</span>
+            <span v-else-if="!busy.export" class="pmut">尚未生成</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 内容与导出：双栏 -->
@@ -520,5 +547,33 @@ function fmtSize(n: number): string {
 }
 .jobpre span {
   display: inline;
+}
+.packcard {
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: var(--bg-soft);
+}
+.ptitle {
+  font-weight: 600;
+  font-size: 14.5px;
+  margin-bottom: 6px;
+  color: var(--text-1);
+}
+.pdesc {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-2);
+  margin: 0 0 10px;
+}
+.prow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pmut {
+  font-size: 12px;
+  color: var(--text-3);
 }
 </style>

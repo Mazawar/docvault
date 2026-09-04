@@ -81,7 +81,7 @@ def pdf(spec: PdfSpec):
 
 @router.post('/export')
 def export():
-    job_service.start_job('export', lambda logcb: export_service.export_zip(logcb))
+    job_service.start_job('生成静态站', lambda logcb: export_service.export_zip(logcb))
     return {'ok': True}
 
 
@@ -95,7 +95,7 @@ def download():
 
 @router.post('/export-pack')
 def export_pack_route():
-    job_service.start_job('export-pack',
+    job_service.start_job('生成资源包',
                           lambda logcb: pack_service.export_pack(False, logcb))
     return {'ok': True}
 
@@ -114,7 +114,7 @@ async def import_pack(file: UploadFile = File(...)):
     tmp = config.DIST / f'.import-{int(time.time())}.zip'
     with open(tmp, 'wb') as w:
         w.write(await file.read())
-    job_service.start_job('import-pack',
+    job_service.start_job('导入资源包',
                           lambda logcb: pack_service.import_pack(tmp, logcb))
     return {'ok': True}
 
