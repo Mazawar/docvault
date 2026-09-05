@@ -66,8 +66,14 @@ function fmtDay(s: string): string {
     <section id="shelf" class="pb-10 pt-10">
       <h2 class="mb-5 text-[15px] font-semibold">书架</h2>
       <div v-if="loading" class="text-sm text-[var(--text-3)]">加载中…</div>
-      <div v-else-if="!data?.projects.length" class="rounded-lg border border-dashed border-[var(--divider)] p-8 text-center text-sm text-[var(--text-3)]">
-        书架还是空的——去「资源管理」添加你想缓存的在线项目，缓存什么由你决定。
+      <div v-else-if="!data?.projects.length" class="rounded-xl border border-dashed border-[var(--divider)] p-8 text-center">
+        <div class="text-sm text-[var(--text-3)]">
+          书架还是空的——缓存什么、缓存多少，完全由你决定。
+        </div>
+        <div class="mt-4 flex justify-center gap-2.5">
+          <a class="btn-pri" href="#/admin">去资源管理添加项目</a>
+          <a class="btn-ghost" href="#/notes">先写点笔记</a>
+        </div>
       </div>
       <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         <div v-for="p in data?.projects" :key="p.id" class="shelf-card">
@@ -97,20 +103,16 @@ function fmtDay(s: string): string {
       </div>
     </section>
 
-    <!-- 最近阅读 -->
-    <section class="pb-24">
+    <!-- 最近阅读（有记录才显示，避免重复空态） -->
+    <section v-if="recent.length" class="pb-24">
       <div class="mb-4 flex items-center justify-between">
         <h2 class="text-[15px] font-semibold">最近阅读</h2>
         <a
-          v-if="recent.length"
           class="cursor-pointer text-xs text-[var(--text-3)] transition-colors hover:text-[var(--brand)]"
           @click="clearAll()"
         >清空记录</a>
       </div>
-      <div v-if="!recent.length" class="rounded-lg border border-[var(--divider)] p-5 text-sm text-[var(--text-3)]">
-        暂无阅读记录
-      </div>
-      <div v-if="recent.length" class="rounded-lg border border-[var(--divider)]">
+      <div class="rounded-lg border border-[var(--divider)]">
         <router-link
           v-for="(x, i) in recent.slice(0, 8)"
           :key="x.u"
@@ -122,7 +124,6 @@ function fmtDay(s: string): string {
           <span class="shrink-0 text-xs text-[var(--text-3)]">{{ fmtTs(x.ts) }}</span>
         </router-link>
       </div>
-      <div v-else class="text-sm text-[var(--text-3)]">暂无记录，读一篇文章试试</div>
     </section>
 
     <footer class="mt-10 border-t border-[var(--divider)] pt-5 pb-2 text-center text-xs text-[var(--text-3)]">
