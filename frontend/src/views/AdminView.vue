@@ -329,7 +329,7 @@ const pdfBooks = computed(() => ov.value?.projects.find((p) => p.id === pdfPid.v
 
     <!-- 导出 PDF：按书生成阅读资源 -->
     <div class="grid grid-cols-1 gap-4 py-2 lg:grid-cols-5">
-      <div class="card lg:col-span-3">
+      <div class="card lg:col-span-5">
         <h2>导出 PDF（按书）</h2>
         <div class="flex flex-wrap items-center gap-2.5">
           <el-select v-model="pdfPid" placeholder="项目" class="!w-44" @change="pdfBid = ''">
@@ -341,12 +341,6 @@ const pdfBooks = computed(() => ov.value?.projects.find((p) => p.id === pdfPid.v
         </div>
         <el-button class="mt-2.5" :loading="busy.export" @click="doPdf">导出整本书</el-button>
         <div class="mut mt-2 truncate">已有：{{ ov?.pdfs.join('　') || '无' }}</div>
-      </div>
-      <div class="card lg:col-span-2">
-        <h2>提示</h2>
-        <div class="mut" style="line-height: 1.9">
-          书架里缓存的书都在这里维护。日常写作请去导航「笔记」模块。
-        </div>
       </div>
     </div>
 
