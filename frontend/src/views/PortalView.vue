@@ -6,7 +6,7 @@ import { useReadState } from '@/composables/useReadState'
 
 const data = ref<IndexPayload | null>(null)
 const loading = ref(true)
-const { recent } = useReadState()
+const { recent, clearAll } = useReadState()
 
 onMounted(async () => {
   try {
@@ -66,8 +66,8 @@ function fmtDay(s: string): string {
     <section id="shelf" class="pb-10 pt-10">
       <h2 class="mb-5 text-[15px] font-semibold">书架</h2>
       <div v-if="loading" class="text-sm text-[var(--text-3)]">加载中…</div>
-      <div v-else-if="!data?.projects.length" class="rounded-lg border border-[var(--divider)] p-6 text-sm text-[var(--text-3)]">
-        还没有项目。到管理台添加 GitHub 仓库，或执行 <code class="inline-code">python -m src.main sync all</code>。
+      <div v-else-if="!data?.projects.length" class="rounded-lg border border-dashed border-[var(--divider)] p-8 text-center text-sm text-[var(--text-3)]">
+        书架还是空的——去「资源管理」添加你想缓存的在线项目，缓存什么由你决定。
       </div>
       <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         <div v-for="p in data?.projects" :key="p.id" class="shelf-card">
@@ -99,7 +99,17 @@ function fmtDay(s: string): string {
 
     <!-- 最近阅读 -->
     <section class="pb-24">
-      <h2 class="mb-4 text-[15px] font-semibold">最近阅读</h2>
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-[15px] font-semibold">最近阅读</h2>
+        <a
+          v-if="recent.length"
+          class="cursor-pointer text-xs text-[var(--text-3)] transition-colors hover:text-[var(--brand)]"
+          @click="clearAll()"
+        >清空记录</a>
+      </div>
+      <div v-if="!recent.length" class="rounded-lg border border-[var(--divider)] p-5 text-sm text-[var(--text-3)]">
+        暂无阅读记录
+      </div>
       <div v-if="recent.length" class="rounded-lg border border-[var(--divider)]">
         <router-link
           v-for="(x, i) in recent.slice(0, 8)"

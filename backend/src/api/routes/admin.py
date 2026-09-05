@@ -7,8 +7,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from ...core import config
 from ...models import database, repository
-from ...services import (export_service, job_service, pack_service, pdf_service,
-                         sync_service)
+from ...services import (export_service, job_service, note_service, pack_service,
+                         pdf_service, sync_service)
 
 router = APIRouter(prefix='/api/admin', tags=['admin'])
 
@@ -148,7 +148,6 @@ def purge_orphan_assets():
     def work(logcb):
         import re as _re
         from ...core import util as _util
-        from ...services import note_service
         ref = set()
         with database.connect() as c:
             for (body,) in c.execute('SELECT body FROM articles'):

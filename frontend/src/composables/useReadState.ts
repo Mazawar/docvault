@@ -44,5 +44,12 @@ export function useReadState() {
     save(KEY_RECENT, recent.value)
   }
 
-  return { readMap, recent, isRead, markRead }
+  function clearAll() {
+    readMap.value = {}
+    recent.value = []
+    save(KEY_READ, {})
+    save(KEY_RECENT, [])
+  }
+
+  return { readMap, recent, isRead, markRead, clearAll }
 }
