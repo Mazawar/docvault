@@ -38,9 +38,15 @@ export const noteContent = (folder: string, name: string) =>
   getJSON<{ folder: string; name: string; title: string; tags: string[]; content: string; updated: string }>(
     `api/notes/content/${enc(folder)}/${enc(name)}`)
 
-export const saveNote = (folder: string, name: string, content: string, tags?: string[]) =>
+export const saveNote = (
+  folder: string,
+  name: string,
+  content: string,
+  tags?: string[],
+  title?: string
+) =>
   postJSON<{ folder: string; name: string; tags: string[] }>(
-    'api/notes/save', { folder, name, content, tags })
+    'api/notes/save', { folder, name, content, tags, title })
 
 export const createNote = (folder: string, name: string) =>
   postJSON<{ folder: string; name: string }>('api/notes/create', { folder, name })
