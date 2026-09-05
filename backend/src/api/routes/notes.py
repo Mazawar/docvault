@@ -14,6 +14,7 @@ class NoteSpec(BaseModel):
     name: str
     content: str = ''
     tags: list[str] | None = None
+    title: str | None = None
 
 
 class RenameSpec(BaseModel):
@@ -57,7 +58,7 @@ def content(folder: str, name: str):
 
 @router.post('/save')
 def save(spec: NoteSpec):
-    return _load(note_service.write, spec.folder, spec.name, spec.content, spec.tags)
+    return _load(note_service.write, spec.folder, spec.name, spec.content, spec.tags, spec.title)
 
 
 @router.get('/search')

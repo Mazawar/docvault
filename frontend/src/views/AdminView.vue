@@ -300,11 +300,10 @@ const pdfBooks = computed(() => ov.value?.projects.find((p) => p.id === pdfPid.v
         <div class="mut mt-2 truncate">已有：{{ ov?.pdfs.join('　') || '无' }}</div>
       </div>
       <div class="card lg:col-span-2">
-        <h2>职责说明</h2>
+        <h2>笔记维护</h2>
         <div class="mut" style="line-height: 1.9">
-          · <b>书架</b>：缓存后的离线资源，供阅读（导航「首页」）<br/>
-          · <b>笔记</b>：日常书写（导航「笔记」，独立模块）<br/>
-          · <b>本页</b>：在线资源的统一维护——项目增删改、同步、导出
+          笔记的写作与内容管理已独立为「笔记」模块（导航「笔记」），支持 CSDN 式编辑器、
+          标签、双链、传图与 PDF 导出。本页仅维护在线缓存资源。
         </div>
       </div>
     </div>

@@ -107,22 +107,33 @@ def _note_path(folder: str, name: str) -> Path:
 def read(folder: str, name: str) -> dict:
     p = _note_path(folder, name)
     st = p.stat()
+    raw = p.read_text(encoding='utf-8', errors='ignore')
+    body, fm = util.strip_fm(raw)
     return {'folder': folder, 'name': name, 'title': _title_of(p),
-            'tags': _tags_of(p),
-            'content': p.read_text(encoding='utf-8', errors='ignore'),
+            'fm_title': util.fm_title(fm) or '',
+            'tags': _fm_tags(fm),
+            'content': body,
             'updated': time.strftime('%Y-%m-%d %H:%M', time.localtime(st.st_mtime))}
 
 
-def write(folder: str, name: str, content: str, tags=None) -> dict:
-    if tags is not None:
-        _, fm = util.strip_fm(content)
-        cur_tags = _fm_tags(fm)
+def _compose_fm(title: str | None, tags: list[str] | None) -> str:
+    lines = ['---']
+    if title:
+        lines.append(f'title: {title}')
+    if tags:
+        lines.append('tags: [' + ', '.join(tags) + ']')
+    lines.append('---')
+    return '\n'.join(lines) + '\n\n'
+
+
+def write(folder: str, name: str, content: str, tags=None, title=None) -> dict:
+    # 编辑器提交的 content 为正文（不含 front-matter）；title/tags 由参数管理
+    if title is not None or tags is not None:
         content = util.strip_fm(content)[0]
-        if tags:
-            fm = '---\ntags: [' + ', '.join(tags) + ']\n---\n\n'
-            content = fm + content
-        elif cur_tags:
-            pass  # tags=[] 且原本无 tags：原样
+        fm_title = title if title else ''
+        fm_tags = tags if tags is not None else []
+        if fm_title or fm_tags:
+            content = _compose_fm(fm_title, fm_tags) + content
     p = _folder(folder) / (_safe(name) + '.md')
     tmp = p.with_suffix('.tmp')
     tmp.write_text(content, encoding='utf-8')
