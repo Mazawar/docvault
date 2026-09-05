@@ -15,6 +15,7 @@ let timer: number | null = null
 async function refresh() {
   if (staticMode.value) return
   ov.value = await adminApi.overview()
+  loadStorage()
 }
 
 onMounted(async () => {
@@ -44,6 +45,22 @@ async function act(key: string, fn: () => Promise<unknown>, okMsg: string) {
 }
 
 const syncOne = (pid: string) => act(`sync-${pid}`, () => adminApi.sync(pid), `已提交同步：${pid}`)
+
+/* ---------- 存储与清理 ---------- */
+const st = ref<Awaited<ReturnType<typeof adminApi.storage>> | null>(null)
+async function loadStorage() {
+  if (staticMode.value) return
+  st.value = await adminApi.storage().catch(() => null)
+}
+const purgeRepos = (pid: string, name: string) =>
+  ElMessageBox.confirm(
+    `清理「${name}」的仓库缓存？文章与图片保留，阅读不受影响；下次同步会自动重新克隆。`,
+    '清理仓库缓存', { confirmButtonText: '清理', type: 'warning' }
+  ).then(() => act(`purge-${pid}`, () => adminApi.purgeRepos(pid), '已提交清理，进度见任务队列'))
+    .then(loadStorage).catch(() => {})
+const purgeOrphan = () =>
+  act('purge-orphan', () => adminApi.purgeOrphanAssets(), '已提交清理，进度见任务队列')
+    .then(loadStorage)
 const syncAll = () => act('sync-all', () => adminApi.sync(''), '已提交全量同步')
 const doExport = () => act('export', () => adminApi.exportZip(), '已提交静态站生成')
 const doExportPack = () => act('export-pack', () => adminApi.exportPack(), '已提交资源包生成')
@@ -215,11 +232,12 @@ const pdfBooks = computed(() => ov.value?.projects.find((p) => p.id === pdfPid.v
             </div>
             <div class="mut mt-0.5 truncate">{{ p.type === 'github' ? p.repo : '本地目录' }} · 同步于 {{ p.updated || '从未' }}</div>
           </div>
-          <el-dropdown trigger="click" @command="(c: string) => c === 'edit' ? editProject(p.id) : delProject(p.id)">
+          <el-dropdown trigger="click" @command="(c: string) => c === 'edit' ? editProject(p.id) : c === 'purge' ? purgeRepos(p.id, p.name) : delProject(p.id)">
             <el-button text :icon="MoreFilled" class="morebtn" />
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="edit" :icon="Edit">编辑</el-dropdown-item>
+                <el-dropdown-item v-if="p.type === 'github'" command="purge">清理仓库缓存</el-dropdown-item>
                 <el-dropdown-item command="del" :icon="Delete" divided>删除</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -237,7 +255,12 @@ const pdfBooks = computed(() => ov.value?.projects.find((p) => p.id === pdfPid.v
           <span v-if="!p.books.length" class="mut text-xs">尚未同步</span>
         </div>
         <div class="projfoot">
-          <span class="mut">{{ p.books.length }} 本书</span>
+          <span class="mut">
+            {{ p.books.length }} 本书
+            <template v-if="st?.projects.find(x => x.id === p.id)?.repos_mb">
+              · 仓库 {{ st.projects.find(x => x.id === p.id)?.repos_mb }}MB
+            </template>
+          </span>
           <el-button
             size="small"
             :icon="Refresh"
@@ -281,6 +304,22 @@ const pdfBooks = computed(() => ov.value?.projects.find((p) => p.id === pdfPid.v
             <span v-else-if="!busy.export" class="pmut">尚未生成</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- 存储与清理 -->
+    <div class="card" v-if="st">
+      <h2>存储与清理</h2>
+      <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px]">
+        <span>图床 <b>{{ st.assets.mb }}MB</b> / {{ st.assets.files }} 个</span>
+        <span>仓库缓存 <b>{{ st.repos_mb }}MB</b></span>
+        <span>数据库 <b>{{ st.db_mb }}MB</b></span>
+        <span>笔记 <b>{{ st.notes_mb }}MB</b></span>
+        <span>导出产物 <b>{{ st.dist_mb }}MB</b></span>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-2.5">
+        <el-button size="small" @click="purgeOrphan" :loading="busy['purge-orphan']">清理无效图片</el-button>
+        <span class="mut">删除图床中未被任何文章/笔记引用的文件；仓库缓存请在各项目卡「···」里清理</span>
       </div>
     </div>
 

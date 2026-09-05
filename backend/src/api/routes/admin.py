@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from ...core import config
-from ...models import repository
+from ...models import database, repository
 from ...services import (export_service, job_service, pack_service, pdf_service,
                          sync_service)
 
@@ -92,6 +92,90 @@ def download():
     if not z:
         raise HTTPException(status_code=404, detail='尚未导出离线包')
     return FileResponse(z, filename=z.name)
+
+
+def _dir_size(p) -> int:
+    if not Path(p).exists():
+        return 0
+    return sum(f.stat().st_size for f in Path(p).rglob('*') if f.is_file())
+
+
+@router.get('/storage')
+def storage():
+    """缓存空间概览：各项目仓库占用 + 全局目录占用。"""
+    def mb(p):
+        return round(_dir_size(p) / 1048576, 1)
+    items = []
+    for p in repository.list_projects():
+        items.append({
+            'id': p['id'], 'name': p['name'], 'type': p['type'],
+            'repos_mb': mb(config.REPOS / p['id']),
+            'articles': sum(b['n'] for b in repository.list_books(p['id'])),
+        })
+    return {
+        'projects': items,
+        'assets': {'mb': mb(config.ASSETS),
+                   'files': len(list(config.ASSETS.glob('*'))) if config.ASSETS.exists() else 0},
+        'repos_mb': mb(config.REPOS),
+        'db_mb': mb(config.DB),
+        'notes_mb': mb(config.DATA / 'notes'),
+        'uploads_mb': mb(config.UPLOADS),
+        'dist_mb': mb(config.DIST),
+    }
+
+
+@router.post('/purge-repos')
+def purge_repos(spec: SyncSpec):
+    """清理某项目的仓库缓存（文章/图片保留，下次同步自动重新克隆）。"""
+    if not repository.get_project(spec.pid):
+        raise HTTPException(status_code=404, detail='项目不存在')
+    def work(logcb):
+        import shutil
+        d = config.REPOS / spec.pid
+        if d.exists():
+            m = _dir_size(d) / 1048576
+            shutil.rmtree(d, ignore_errors=True)
+            logcb(f'已清理 {spec.pid} 仓库缓存 {m:.0f} MB（文章与图片保留，下次同步自动重新克隆）')
+        else:
+            logcb('该项目没有仓库缓存')
+    job_service.start_job('清理仓库缓存', work)
+    return {'ok': True}
+
+
+@router.post('/purge-orphan-assets')
+def purge_orphan_assets():
+    """清理图床中未被任何文章/笔记引用的无效图片。"""
+    def work(logcb):
+        import re as _re
+        from ...core import util as _util
+        from ...services import note_service
+        ref = set()
+        with database.connect() as c:
+            for (body,) in c.execute('SELECT body FROM articles'):
+                ref |= {m.group(1) for m in _re.finditer(r'src="/a/([^"]+)"', body)}
+                for u in _util.collect_urls(body):
+                    ref.add(_util.asset_name(u))
+        for folder, name, path in note_service.iter_notes():
+            try:
+                body = path.read_text(encoding='utf-8', errors='ignore')
+            except OSError:
+                continue
+            ref |= {m.group(1) for m in _re.finditer(r'src="/a/([^"]+)"', body)}
+            for u in _util.collect_urls(body):
+                ref.add(_util.asset_name(u))
+        deleted, freed = 0, 0
+        for f in config.ASSETS.iterdir():
+            if f.name in ref or f.name.startswith('.') or not f.is_file():
+                continue
+            try:
+                freed += f.stat().st_size
+                f.unlink()
+                deleted += 1
+            except OSError:
+                pass
+        logcb(f'清理无效图片 {deleted} 个，释放 {freed / 1048576:.1f} MB（保留 {len(ref)} 个引用中）')
+    job_service.start_job('清理无效图片', work)
+    return {'ok': True}
 
 
 @router.post('/export-pack')
