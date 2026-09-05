@@ -59,6 +59,16 @@ export const renameNote = (folder: string, oldName: string, newName: string) =>
 
 export const createFolder = (name: string) => postJSON<{ ok: boolean }>('api/notes/folder', { name })
 
+export const renameFolder = (oldName: string, newName: string) =>
+  postJSON<{ ok: boolean }>('api/notes/folder-rename', { old: oldName, new: newName })
+
+export async function deleteFolder(name: string, force = false) {
+  const r = await fetch(`api/notes/folder/${enc(name)}?force=${force}`, { method: 'DELETE' })
+  const d = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(d.detail || '请求失败')
+  return d
+}
+
 export const renderPreview = (folder: string, name: string, content: string) =>
   postJSON<{ html: string }>('api/notes/render-preview', { folder, name, content })
 

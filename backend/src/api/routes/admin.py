@@ -216,8 +216,8 @@ def save_project(spec: ProjectSpec):
     pid = spec.id.strip().lower()
     if not PID_RE.match(pid):
         raise HTTPException(status_code=400, detail='id 需为小写字母/数字/连字符，2~40 位')
-    if spec.type not in ('github', 'upload'):
-        raise HTTPException(status_code=400, detail='type 仅支持 github/upload')
+    if spec.type not in ('github', 'upload', 'notebook'):
+        raise HTTPException(status_code=400, detail='type 仅支持 github/upload/notebook')
     entry = {'id': pid, 'name': spec.name.strip() or pid, 'type': spec.type,
              'repo': '', 'root': '.', 'books': {}}
     if spec.type == 'github':
@@ -229,6 +229,11 @@ def save_project(spec: ProjectSpec):
         entry['books'] = {str(k): str(v) for k, v in spec.books.items() if str(k).strip()}
         entry['group_titles'] = {str(bid): {str(d): str(t) for d, t in m.items()}
                                  for bid, m in (spec.groupTitles or {}).items()}
+    elif spec.type == 'notebook':
+        repo = spec.repo.strip()
+        if not repo:
+            raise HTTPException(status_code=400, detail='请选择要导入的笔记本')
+        entry['repo'] = repo
     else:
         (config.UPLOADS / pid).mkdir(parents=True, exist_ok=True)
     existing = [p for p in repository.list_projects() if p['id'] != pid]

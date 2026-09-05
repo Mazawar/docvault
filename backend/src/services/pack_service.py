@@ -46,7 +46,7 @@ def _add_dir(z: zipfile.ZipFile, root: Path, arc_root: str) -> int:
 
 
 def export_pack(with_repos=False, logcb=print) -> Path:
-    stamp = time.strftime('%Y%m%d-%H%M')
+    stamp = time.strftime('%Y%m%d')
     config.DIST.mkdir(parents=True, exist_ok=True)
     out = config.DIST / f'DocVault-pack-{stamp}.zip'
     tmp_zip = config.DIST / f'.{out.name}.tmp'
@@ -80,10 +80,21 @@ def export_pack(with_repos=False, logcb=print) -> Path:
             logcb('源仓库（供后续联网同步）...')
             _add_dir(z, config.REPOS, 'repos')
 
-    os.replace(tmp_zip, out)
+    # 同名覆盖失败（旧包正被下载/杀软扫描）→ 落盘为带时分秒的新包，绝不让导出失败
+    for i in range(3):
+        try:
+            os.replace(tmp_zip, out)
+            break
+        except PermissionError:
+            if i == 2:
+                out = config.DIST / f'DocVault-pack-{stamp}-{time.strftime("%H%M%S")}.zip'
+                os.replace(tmp_zip, out)
+                break
+            time.sleep(2)
     shutil.rmtree(work, ignore_errors=True)
+    # 资源包永远只保留最新一个
     packs = sorted(config.DIST.glob(PACK_GLOB))
-    for old in packs[:-3]:
+    for old in packs[:-1]:
         try:
             old.unlink()
         except OSError:
@@ -167,5 +178,11 @@ def import_pack(zip_path, logcb=print) -> dict:
         logcb(f'repos +{r}')
     con.close()
     shutil.rmtree(work, ignore_errors=True)
+    # 管理台上传的临时 zip 用完即删（CLI 导入的用户文件不动）
+    if zip_path.name.startswith('.import-'):
+        try:
+            zip_path.unlink(missing_ok=True)
+        except OSError:
+            pass
     logcb('导入完成：serve 即为完整实例（搜索/管理/阅读记忆全可用）')
     return {'projects': [p['id'] for p in projs]}

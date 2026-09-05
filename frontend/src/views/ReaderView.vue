@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { getBook, getArticle } from '@/api/reading'
 import { readUrl as toUrl } from '@/api/http'
@@ -8,6 +8,7 @@ import { useReadState } from '@/composables/useReadState'
 import ArticleBody from '@/components/ArticleBody.vue'
 
 const route = useRoute()
+const scroller = inject<Ref<HTMLElement | null>>('pageScroller')
 const { isRead, markRead, readMap } = useReadState()
 
 const book = ref<BookPayload | null>(null)
@@ -123,7 +124,8 @@ function syncTocActive() {
 }
 
 function onScroll() {
-  const h = document.documentElement
+  const h = scroller?.value
+  if (!h) return
   const max = h.scrollHeight - h.clientHeight
   progress.value = max > 0 ? Math.min(100, (h.scrollTop / max) * 100) : 0
   syncTocActive()
@@ -134,7 +136,8 @@ function onScroll() {
 let marked = false
 function checkRead() {
   if (marked || !art.value) return
-  const h = document.documentElement
+  const h = scroller?.value
+  if (!h) return
   if ((h.scrollTop + h.clientHeight) / h.scrollHeight > 0.82) {
     marked = true
     markRead(toUrl(pid.value, bid.value, slug.value), art.value.title)
@@ -146,23 +149,23 @@ function goto(slug2: string) {
   window.location.hash = toUrl(pid.value, bid.value, slug2)
 }
 
-onBeforeUnmount(() => {
-  headingEls = []
-})
-
 watch([pid, bid], loadBook)
 watch(slug, loadArticle)
 watch(readMap, () => nextTick())
 
 onMounted(() => {
-  window.addEventListener('scroll', onScroll, { passive: true })
+  scroller?.value?.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
   loadBook().then(() => (slug.value ? loadArticle() : undefined))
 })
-onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
+onBeforeUnmount(() => {
+  scroller?.value?.removeEventListener('scroll', onScroll)
+  headingEls = []
+})
 </script>
 
 <template>
-  <div class="flex pt-[var(--nav-h)]">
+  <div class="flex">
     <div id="progress" :style="{ width: progress + '%' }"></div>
     <div class="backdrop" :class="{ show: drawerOpen }" @click="drawerOpen = false"></div>
 

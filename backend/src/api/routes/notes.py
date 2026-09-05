@@ -27,6 +27,11 @@ class FolderSpec(BaseModel):
     name: str
 
 
+class FolderRenameSpec(BaseModel):
+    old: str
+    new: str
+
+
 def _load(fn, *a):
     try:
         return fn(*a)
@@ -122,7 +127,11 @@ def add_folder(spec: FolderSpec):
     return {'ok': True}
 
 
+@router.post('/folder-rename')
+def rename_folder(spec: FolderRenameSpec):
+    return _load(note_service.rename_folder, spec.old, spec.new)
+
+
 @router.delete('/folder/{name}')
-def del_folder(name: str):
-    note_service.delete_folder(name)
-    return {'ok': True}
+def del_folder(name: str, force: bool = False):
+    return _load(note_service.delete_folder, name, force) or {'ok': True}

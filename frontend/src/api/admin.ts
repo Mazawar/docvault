@@ -24,7 +24,6 @@ export const adminApi = {
       return data
     })
   },
-  exportPdf: (pid: string, bid: string) => postJSON<{ ok: boolean }>('api/admin/pdf', { pid, bid }),
   storage: () => getJSON<{    projects: { id: string; name: string; type: string; repos_mb: number; articles: number }[]
     assets: { mb: number; files: number }
     repos_mb: number; db_mb: number; notes_mb: number; uploads_mb: number; dist_mb: number

@@ -13,7 +13,7 @@
   width: var(--side-w);
   flex: none;
   position: sticky;
-  top: var(--nav-h);
+  top: 0;
   height: calc(100vh - var(--nav-h));
   overflow-y: auto;
   padding: 20px 14px 48px;
@@ -176,6 +176,14 @@
 
 .backdrop.show {
   display: block;
+}
+
+/* 宽屏：为右侧悬浮目录预留固定区，正文在侧栏与目录区之间居中，
+   避免窄内容列在超宽屏上两侧留白失控 */
+@media (min-width: 1366px) {
+  main {
+    padding-right: clamp(0px, calc(100vw - 1128px), 300px);
+  }
 }
 
 /* 右侧目录（宽屏才显示）——VitePress 风格：竖轨 + 滑动指示条 + 层级缩进 */

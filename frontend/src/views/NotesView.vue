@@ -2,13 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Plus } from '@element-plus/icons-vue'
+import { Delete, Edit, Setting } from '@element-plus/icons-vue'
 import { MdEditor, MdPreview } from 'md-editor-v3'
 import type { ExposeParam, ToolbarNames } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import {
-  backlinks, createFolder, createNote, daily, deleteNote, noteContent, noteRendered,
-  notesIndex, renameNote, saveNote, uploadAttachment, uploadImage,
+  backlinks, createFolder, createNote, daily, deleteFolder, deleteNote, noteContent, noteRendered,
+  notesIndex, renameFolder, renameNote, saveNote, uploadAttachment, uploadImage,
   type NoteItem, type NotesIndex
 } from '@/api/notes'
 import { isStatic } from '@/api/http'
@@ -261,13 +261,44 @@ function delNote(row?: { folder: string; note: NoteItem }) {
       await refresh(folder)
     }).catch(() => {})
 }
-function newFolder() {
-  ElMessageBox.prompt('笔记本名称', '新建笔记本', { confirmButtonText: '创建' })
-    .then(async ({ value }) => {
-      if (!value?.trim()) return
-      await createFolder(value.trim())
-      await refresh(value.trim())
-    }).catch(() => {})
+const nbOpen = ref(false)
+const newNbName = ref('')
+
+async function renameNb(f: string) {
+  const r = await ElMessageBox.prompt('新的笔记本名称', `重命名「${f}」`, {
+    inputValue: f, confirmButtonText: '重命名', cancelButtonText: '取消'
+  }).catch(() => null)
+  const nn = (r?.value || '').trim()
+  if (!nn || nn === f) return
+  await renameFolder(f, nn)
+  ElMessage.success('已重命名')
+  folderFilter.value = folderFilter.value === f ? nn : folderFilter.value
+  await refresh(activeFolder.value === f ? nn : undefined)
+}
+
+async function deleteNb(f: string) {
+  const cnt = folders.value.find((x) => x.folder === f)?.notes.length ?? 0
+  const msg = cnt
+    ? `笔记本「${f}」里还有 ${cnt} 篇笔记，将一并删除且不可恢复，确定？`
+    : `删除空笔记本「${f}」？`
+  const ok = await ElMessageBox.confirm(msg, '删除笔记本', {
+    type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
+  }).then(() => true).catch(() => false)
+  if (!ok) return
+  await deleteFolder(f, cnt > 0)
+  ElMessage.success('已删除')
+  folderFilter.value = folderFilter.value === f ? '' : folderFilter.value
+  if (activeFolder.value === f) activeFolder.value = ''
+  await refresh('')
+}
+
+async function createNb() {
+  const name = newNbName.value.trim()
+  if (!name) return ElMessage.warning('请输入笔记本名称')
+  await createFolder(name)
+  newNbName.value = ''
+  ElMessage.success('已创建')
+  await refresh(name)
 }
 function editTags() {
   ElMessageBox.prompt('标签（英文逗号分隔）', '编辑标签', { inputValue: tags.value.join(',') })
@@ -324,7 +355,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <div class="min-h-screen pt-[var(--nav-h)]">
+  <div>
     <!-- 顶栏 -->
     <div class="px-5 pt-4">
       <div class="flex flex-wrap items-center gap-3">
@@ -348,10 +379,30 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         </el-select>
         <template v-if="!isStatic()">
           <el-button size="small" @click="doDaily">今日笔记</el-button>
-          <el-button size="small" :icon="Plus" @click="newFolder">新建笔记本</el-button>
+          <el-tooltip content="笔记本管理" placement="left">
+            <button class="nbset" @click="nbOpen = true">
+              <el-icon><Setting /></el-icon>
+            </button>
+          </el-tooltip>
         </template>
       </div>
     </div>
+
+    <!-- 笔记本管理弹窗 -->
+    <el-dialog v-model="nbOpen" title="笔记本管理" width="440">
+      <div v-for="f in folders" :key="f.folder" class="nbrow">
+        <span class="truncate">{{ f.folder }}</span>
+        <span class="flex-1" />
+        <span class="nbmut">{{ f.notes.length }} 篇</span>
+        <el-button size="small" text @click="renameNb(f.folder)">重命名</el-button>
+        <el-button size="small" text type="danger" @click="deleteNb(f.folder)">删除</el-button>
+      </div>
+      <div v-if="!folders.length" class="py-6 text-center text-[13px] text-[var(--text-3)]">还没有笔记本</div>
+      <div class="mt-3 flex gap-2">
+        <el-input v-model="newNbName" size="small" placeholder="新笔记本名称" @keydown.enter="createNb" />
+        <el-button size="small" type="primary" @click="createNb">新建</el-button>
+      </div>
+    </el-dialog>
 
     <!-- ================= 写作 ================= -->
     <div v-if="mode === 'write'">
@@ -397,7 +448,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <!-- 编辑器 -->
         <div class="px-5">
           <MdPreview
-            v-if="isStatic"
+            v-if="isStatic()"
             :model-value="previewFallback"
             preview-theme="vuepress"
             code-theme="github"
@@ -484,7 +535,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               <span>{{ fmtSize(r.note.size) }}</span>
             </div>
           </div>
-          <div class="flex shrink-0 items-center gap-1 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <div class="flex shrink-0 items-center gap-1 pt-1">
             <el-button size="small" text type="primary" :icon="Edit" @click="pickNote(r.folder, r.note.name)">编辑</el-button>
             <el-button size="small" text @click="renameNote2(r)">重命名</el-button>
             <el-button size="small" text type="danger" :icon="Delete" @click="delNote(r)">删除</el-button>
@@ -500,8 +551,39 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </template>
 
 <style scoped>
+.nbset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--divider);
+  background: var(--bg);
+  color: var(--text-2);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.15s;
+}
+.nbset:hover {
+  color: var(--brand);
+  border-color: var(--brand);
+}
+.nbrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 2px;
+  border-bottom: 1px dashed var(--divider);
+  font-size: 13.5px;
+  color: var(--text-1);
+}
+.nbmut {
+  font-size: 12px;
+  color: var(--text-3);
+}
 .dv-editor {
-  height: calc(100vh - 220px);
+  height: calc(100vh - 220px - var(--nav-h));
   border-radius: 10px;
   border-color: var(--divider);
 }

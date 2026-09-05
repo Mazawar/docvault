@@ -79,7 +79,7 @@ function fmtDay(s: string): string {
         <div v-for="p in data?.projects" :key="p.id" class="shelf-card">
           <div class="flex items-baseline justify-between gap-2">
             <h3 class="m-0 text-[15px] font-semibold leading-snug">{{ p.name }}</h3>
-            <span class="shrink-0 text-[11px] text-[var(--text-3)]">{{ p.type === 'upload' ? '上传' : 'GitHub' }}</span>
+            <span class="shrink-0 text-[11px] text-[var(--text-3)]">{{ p.type === 'notebook' ? '笔记本' : p.type === 'upload' ? '上传' : 'GitHub' }}</span>
           </div>
           <div class="mt-0.5 mb-2.5 text-xs text-[var(--text-3)]">
             同步于 {{ fmtDay(p.updated) || '从未' }}

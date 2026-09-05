@@ -57,6 +57,17 @@
   --radius: 8px;
 }
 
+/* 弹窗上移：EP 默认 15vh 在 app-frame 布局下显得偏低 */
+.el-dialog:not(.is-align-center) {
+  margin-top: 8vh;
+}
+
+/* 浮层（tooltip 等）贴视口边缘时小数像素溢出会引发页面级滚动条，直接裁掉 */
+html,
+body {
+  overflow-x: clip;
+}
+
 html.dark {
   --bg: #1b1b1f;
   --bg-alt: #202127;

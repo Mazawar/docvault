@@ -171,10 +171,35 @@ def rename(folder: str, old: str, new: str) -> dict:
     return read(folder, new)
 
 
-def delete_folder(folder: str):
+def rename_folder(old: str, new: str) -> dict:
+    src = ROOT / _safe(old)
+    dst = ROOT / _safe(new)
+    if not src.is_dir():
+        raise FileNotFoundError(f'笔记本不存在: {old}')
+    if dst.exists():
+        raise FileExistsError(f'笔记本已存在: {new}')
+    src.rename(dst)
+    for p in sorted(dst.glob('*.md')):
+        try:
+            row = read(new, p.stem)
+            repository.note_fts_upsert(new, p.stem, row['title'],
+                                       p.read_text(encoding='utf-8', errors='ignore'))
+        except Exception:
+            pass
+    return {'ok': True}
+
+
+def delete_folder(folder: str, force: bool = False):
     d = ROOT / _safe(folder)
-    if d.exists():
-        shutil.rmtree(d, ignore_errors=True)
+    if not d.is_dir():
+        raise FileNotFoundError(f'笔记本不存在: {folder}')
+    notes = list(d.glob('*.md'))
+    if notes and not force:
+        raise ValueError(f'笔记本内还有 {len(notes)} 篇笔记，请先移走或删除')
+    shutil.rmtree(d, ignore_errors=True)
+    for p in notes:
+        repository.note_fts_delete(p.stem)
+    return {'ok': True}
 
 
 def _note_lookup() -> dict:

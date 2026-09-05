@@ -170,9 +170,9 @@ def export_zip(logcb=print):
                 os.replace(tmp_zip, out)
                 break
             time.sleep(2)
-    # 只保留最近 3 个离线包
+    # 离线静态站包永远只保留最新一个
     zips = sorted(config.DIST.glob('DocVault-offline-*.zip'))
-    for old in zips[:-3]:
+    for old in zips[:-1]:
         try:
             old.unlink()
         except OSError:

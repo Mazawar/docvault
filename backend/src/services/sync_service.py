@@ -1,6 +1,7 @@
 """同步服务：拉取仓库/扫描上传目录 → 文章入库 → 图片全局缓存。"""
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -55,20 +56,41 @@ def _git_env():
     return env
 
 
+def _rmtree_force(d):
+    """Windows 加固：git pack 文件带只读属性，先清属性再删，删不掉就明确报错。"""
+    import stat
+    for root, _, files in os.walk(d):
+        for f in files:
+            try:
+                os.chmod(os.path.join(root, f), stat.S_IWRITE)
+            except OSError:
+                pass
+    shutil.rmtree(d)
+
+
 def ensure_repo(p):
     dest = config.REPOS / p['id']
     url = f"https://github.com/{p['repo']}.git"
     env = _git_env()
-    if (dest / '.git').exists():
+    if (dest / '.git' / 'HEAD').exists():
         r = subprocess.run(['git', '-C', str(dest), 'pull', '--ff-only'],
                            capture_output=True, text=True, env=env, timeout=600)
+        if r.returncode != 0:
+            raise RuntimeError(f'[{p["id"]}] git pull 失败: {(r.stderr or r.stdout).strip()[-300:]}')
         log(f"[{p['id']}] pull: {(r.stdout + r.stderr).strip()[:120]}")
     else:
+        # .git 缺失/损坏（如删除项目时 rmtree 残留空壳）：git 会穿透到上层仓库，
+        # 必须清掉重新克隆
+        if dest.exists():
+            try:
+                _rmtree_force(dest)
+            except OSError as e:
+                raise RuntimeError(f'[{p["id"]}] 旧仓库目录删除失败（可能被其他程序占用）：{dest} — {e}')
         dest.parent.mkdir(parents=True, exist_ok=True)
         r = subprocess.run(['git', 'clone', '--depth', '1', url, str(dest)],
                            capture_output=True, text=True, env=env, timeout=1800)
         if r.returncode != 0:
-            raise RuntimeError(r.stderr[-300:])
+            raise RuntimeError(f'[{p["id"]}] git clone 失败: {(r.stderr or r.stdout).strip()[-300:]}')
         log(f"[{p['id']}] cloned {p['repo']}")
     return dest
 
@@ -110,7 +132,22 @@ def sync_project(pid):
             arts = _scan_dir(bdir)
             if arts:
                 books_.append({'id': bid, 'title': btitle, 'root': bdir, 'articles': arts})
+        if not books_:
+            # 空扫描（仓库为空/损坏/books 配置错误）不允许覆盖数据库，否则数据全丢
+            raise RuntimeError(f'[{pid}] 仓库扫描到 0 篇文章，已中止同步并保留数据库现有数据'
+                               '——请检查仓库内容或 books/root 配置')
         log(f"[{pid}] {len(books_)} books, {sum(len(b['articles']) for b in books_)} articles")
+    elif p['type'] == 'notebook':
+        # 把笔记模块的笔记本导入为书架上的书（repo 字段存笔记本名）
+        from . import note_service
+        folder = p['repo'] or note_service.DEFAULT_FOLDER
+        ndir = note_service.ROOT / note_service._safe(folder)
+        arts = []
+        for f in sorted(ndir.glob('*.md')):
+            row = note_service.read(folder, f.stem)
+            arts.append({'slug': f.stem, 'title': row['title'], 'body': row['content']})
+        books_.append({'id': 'nb', 'title': folder, 'root': ndir, 'articles': arts})
+        log(f"[{pid}] notebook {folder}: {len(arts)} notes")
     elif p['type'] == 'upload':
         udir = config.UPLOADS / pid
         udir.mkdir(parents=True, exist_ok=True)
