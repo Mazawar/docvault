@@ -11,7 +11,6 @@ async function del<T>(url: string): Promise<T> {
 
 export const adminApi = {
   overview: () => getJSON<Overview>('api/admin/overview'),
-  jobs: () => getJSON<{ jobs: Job[] }>('api/jobs').then((r) => r.jobs),
 
   sync: (pid = '') => postJSON<{ ok: boolean }>('api/admin/sync', { pid }),
   exportZip: () => postJSON<{ ok: boolean }>('api/admin/export'),
@@ -26,8 +25,7 @@ export const adminApi = {
     })
   },
   exportPdf: (pid: string, bid: string) => postJSON<{ ok: boolean }>('api/admin/pdf', { pid, bid }),
-  storage: () => getJSON<{
-    projects: { id: string; name: string; type: string; repos_mb: number; articles: number }[]
+  storage: () => getJSON<{    projects: { id: string; name: string; type: string; repos_mb: number; articles: number }[]
     assets: { mb: number; files: number }
     repos_mb: number; db_mb: number; notes_mb: number; uploads_mb: number; dist_mb: number
   }>('api/admin/storage'),
@@ -47,22 +45,6 @@ export const adminApi = {
   }) => postJSON<{ ok: boolean }>('api/admin/projects', p),
   deleteProject: (pid: string) => del<{ ok: boolean }>(`api/admin/projects/${pid}`),
   listProjects: () => getJSON<ProjectFull[]>('api/admin/projects'),
-
-  upload: async (pid: string, files: File[]): Promise<{ ok: boolean; saved: string[] }> => {
-    const fd = new FormData()
-    fd.append('pid', pid)
-    for (const f of files) fd.append('files', f)
-    const r = await fetch('api/admin/upload', { method: 'POST', body: fd })
-    const data = (await r.json()) as { ok: boolean; saved: string[]; error?: string }
-    if (!r.ok) throw new Error(data.error || '上传失败')
-    return data
-  },
-
-  getNote: (pid: string, name: string) =>
-    getJSON<{ name: string; content: string }>(
-      `api/admin/note?pid=${encodeURIComponent(pid)}&name=${encodeURIComponent(name)}`),
-  saveNote: (pid: string, name: string, content: string) =>
-    postJSON<{ ok: boolean; name: string }>('api/admin/note', { pid, name, content }),
 
   downloadUrl: 'api/admin/download',
   downloadPackUrl: 'api/admin/download-pack'

@@ -35,11 +35,6 @@ class PdfSpec(BaseModel):
     bid: str
 
 
-class NoteSpec(BaseModel):
-    name: str
-    content: str = ''
-    pid: str = 'my-notes'
-
 class NotePdfSpec(BaseModel):
     folder: str = '我的笔记'
     name: str = ''
@@ -54,15 +49,12 @@ def overview():
                                         for b in books]})
     z = export_service.latest_zip()
     pk = pack_service.latest_pack()
-    notes = [{'pid': 'my-notes', 'name': n['name'], 'size': n['size']}
-             for fol in note_service.list_index() for n in fol['notes']]
     return {'projects': projects,
             'pdfs': pdf_service.list_pdfs(),
             'zip': z.name if z else None,
             'zipSize': z.stat().st_size if z else 0,
             'pack': pk.name if pk else None,
             'packSize': pk.stat().st_size if pk else 0,
-            'notes': notes,
             'jobs': repository.jobs_recent(8)}
 
 
@@ -214,26 +206,6 @@ async def import_pack(file: UploadFile = File(...)):
     return {'ok': True}
 
 
-@router.post('/upload')
-async def upload(pid: str = Form(...), files: list[UploadFile] = File(...)):
-    p = repository.get_project(pid)
-    if not p or p['type'] != 'upload':
-        raise HTTPException(status_code=400, detail='目标必须是 upload 类型项目')
-    udir = config.UPLOADS / pid
-    saved = []
-    for f in files:
-        name = Path(f.filename or '').name
-        if name.lower().endswith('.md'):
-            dest = udir / name
-        else:
-            dest = udir / '_files' / name
-            dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(await f.read())
-        saved.append(name)
-    job_service.start_job(f'sync-{pid}', lambda logcb: sync_service.sync_all(pid, logcb))
-    return {'ok': True, 'saved': saved}
-
-
 @router.get('/projects')
 def list_projects():
     return repository.list_projects()
@@ -269,6 +241,10 @@ def save_project(spec: ProjectSpec):
 def delete_project(pid: str, purge: bool = True):
     if not repository.get_project(pid):
         raise HTTPException(status_code=404, detail='project not found')
+    running = [j for j in repository.jobs_recent(50)
+               if j['status'] == 'running' and pid in j['name']]
+    if running:
+        raise HTTPException(status_code=409, detail='该项目有进行中的任务，请稍后再删除')
     repository.delete_project(pid)
     job_service.start_job(f'delete-{pid}', lambda logcb: _purge(pid, purge, logcb))
     return {'ok': True}
@@ -283,25 +259,3 @@ def _purge(pid, purge, logcb):
         for f in config.PDF_DIR.glob(f'{pid}__*.pdf'):
             f.unlink(missing_ok=True)
         logcb(f'purged {pid} data')
-
-
-@router.get('/note')
-def note_get(pid: str = 'my-notes', name: str = ''):
-    name = Path(name).name
-    p = config.UPLOADS / pid / name
-    if not p.exists():
-        raise HTTPException(status_code=404, detail='note not found')
-    return {'name': name, 'content': p.read_text(encoding='utf-8', errors='ignore')}
-
-
-@router.post('/note')
-def note_save(spec: NoteSpec):
-    name = Path(spec.name).name or 'untitled'
-    name = name[:-3] if name.endswith('.md') else name
-    if not name.strip():
-        raise HTTPException(status_code=400, detail='name 必填')
-    try:
-        note_service.write(note_service.DEFAULT_FOLDER, name, spec.content)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return {'ok': True, 'name': name}

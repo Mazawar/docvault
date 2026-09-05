@@ -58,6 +58,10 @@ def content(folder: str, name: str):
 
 @router.post('/save')
 def save(spec: NoteSpec):
+    if len(spec.name) > 80:
+        raise HTTPException(status_code=400, detail='笔记名过长（≤80 字符）')
+    if len(spec.content.encode('utf-8')) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail='内容超过 5MB')
     return _load(note_service.write, spec.folder, spec.name, spec.content, spec.tags, spec.title)
 
 
