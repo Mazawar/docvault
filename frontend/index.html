@@ -10,6 +10,27 @@
         if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches))
           document.documentElement.classList.add('dark')
       } catch (e) {}
+      /* 启动错误显示器：应用挂载失败时把 JS 错误画到页面上 */
+      window.__errs = []
+      window.addEventListener('error', function (e) {
+        window.__errs.push(String(e.message || e).slice(0, 300) + '  @' + String(e.filename || '').split('/').pop() + ':' + e.lineno)
+      })
+      window.addEventListener('unhandledrejection', function (e) {
+        window.__errs.push('Promise: ' + String(e.reason).slice(0, 300))
+      })
+      setInterval(function () {
+        if (!window.__errs.length) return
+        var app = document.getElementById('app')
+        if (!app || app.innerHTML.length > 80) return
+        var d = document.getElementById('errbox')
+        if (!d) {
+          d = document.createElement('div')
+          d.id = 'errbox'
+          d.style.cssText = 'position:fixed;top:64px;left:12px;right:12px;z-index:99999;background:#fee2e2;color:#991b1b;padding:12px 14px;font:12px/1.6 ui-monospace,monospace;white-space:pre-wrap;border-radius:10px;border:1px solid #fca5a5'
+          document.body.appendChild(d)
+        }
+        d.textContent = '启动错误:\n' + window.__errs.join('\n')
+      }, 800)
     </script>
   </head>
   <body>

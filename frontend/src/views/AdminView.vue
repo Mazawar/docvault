@@ -85,6 +85,10 @@ const doPdf = () => {
   act(`pdf-${pdfPid.value}-${pdfBid.value}`, () => adminApi.exportPdf(pdfPid.value, pdfBid.value), '已提交 PDF 导出')
 }
 
+function fmtSize(n: number): string {
+  return n < 1024 ? `${n}B` : n < 1048576 ? `${(n / 1024).toFixed(1)}K` : `${(n / 1048576).toFixed(1)}M`
+}
+
 /* ---------- 统计 ---------- */
 const stats = computed(() => {
   const ps = ov.value?.projects || []
@@ -339,10 +343,9 @@ const pdfBooks = computed(() => ov.value?.projects.find((p) => p.id === pdfPid.v
         <div class="mut mt-2 truncate">已有：{{ ov?.pdfs.join('　') || '无' }}</div>
       </div>
       <div class="card lg:col-span-2">
-        <h2>笔记维护</h2>
+        <h2>提示</h2>
         <div class="mut" style="line-height: 1.9">
-          笔记的写作与内容管理已独立为「笔记」模块（导航「笔记」），支持 CSDN 式编辑器、
-          标签、双链、传图与 PDF 导出。本页仅维护在线缓存资源。
+          书架里缓存的书都在这里维护。日常写作请去导航「笔记」模块。
         </div>
       </div>
     </div>
