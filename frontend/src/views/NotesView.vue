@@ -25,6 +25,7 @@ const tagFilter = ref('')
 const backlinksList = ref<{ folder: string; name: string; title: string }[]>([])
 const showBacklinks = ref(false)
 const taEl = ref<HTMLTextAreaElement | null>(null)
+const attInput = ref<HTMLInputElement | null>(null)
 
 const folders = computed(() => idx.value?.folders || [])
 const filteredNotes = computed(() => {
@@ -312,9 +313,8 @@ onMounted(async () => {
           <template v-if="!isStatic()">
             <el-button size="small" @click="doDaily">📅 今日</el-button>
             <el-button size="small" :loading="showBacklinks" @click="toggleBacklinks">反链</el-button>
-            <el-button size="small" :disabled="!activeNote.tags?.length" @click="toggleBacklinks">
-              标签 {{ activeNote.tags?.length || 0 }}
-            </el-button>
+            <el-button size="small" :icon="Plus" @click="attInput?.click()">📎 附件</el-button>
+            <input ref="attInput" type="file" multiple style="display: none" @change="(e: Event) => { const fs = (e.target as HTMLInputElement).files; if (fs?.length) handleFiles(fs); (e.target as HTMLInputElement).value = '' }" />
             <el-button size="small" :icon="Edit" @click="editTags">标签</el-button>
             <el-button size="small" :icon="Edit" @click="renameNote2">重命名</el-button>
             <el-button size="small" type="danger" plain :icon="Delete" @click="delNote">删除</el-button>

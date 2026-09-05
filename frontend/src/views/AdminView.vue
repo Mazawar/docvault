@@ -171,52 +171,6 @@ const pdfPid = ref('')
 const pdfBid = ref('')
 const pdfBooks = computed(() => ov.value?.projects.find((p) => p.id === pdfPid.value)?.books || [])
 
-/* ---------- 笔记 ---------- */
-const notePid = ref('')
-const noteName = ref('')
-const noteText = ref('')
-const notePidList = computed(() => ov.value?.projects.filter((p) => p.type === 'upload').map((p) => ({ id: p.id, name: p.name })) || [])
-const noteList = computed(() => ov.value?.notes.filter((n) => !notePid.value || n.pid === notePid.value) || [])
-
-async function loadNote() {
-  if (!noteName.value) {
-    noteText.value = ''
-    return
-  }
-  const pid = notePid.value || noteName.value.split('/')[0]
-  const name = noteName.value.includes('/') ? noteName.value.split('/')[1] : noteName.value
-  const r = await adminApi.getNote(pid, name)
-  noteText.value = r.content
-}
-
-async function saveNote() {
-  let name = noteName.value || ''
-  if (!name) {
-    name = window.prompt('笔记文件名（不含 .md）') || ''
-    if (!name) return
-  }
-  const pid = notePid.value || 'my-notes'
-  await act('note', () => adminApi.saveNote(pid, name, noteText.value), `已保存 ${name}，发布中…`)
-}
-
-/* ---------- 上传 ---------- */
-const upPid = ref('my-notes')
-const upFiles = ref<File[]>([])
-const uploadProjectList = computed(() => ov.value?.projects.filter((p) => p.type === 'upload').map((p) => ({ id: p.id, name: p.name })) || [])
-
-function onFileChange(_f: unknown, fs: { raw?: File; name: string }[]) {
-  upFiles.value = fs.map((f) => f.raw).filter((f): f is File => !!f)
-}
-
-async function doUpload() {
-  if (!upFiles.value.length) return ElMessage.warning('选择文件')
-  const r = await act('upload', () => adminApi.upload(upPid.value, upFiles.value), '已上传并提交同步')
-  if (r) upFiles.value = []
-}
-
-function fmtSize(n: number): string {
-  return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'
-}
 </script>
 
 <template>
@@ -330,58 +284,27 @@ function fmtSize(n: number): string {
       </div>
     </div>
 
-    <!-- 内容与导出：双栏 -->
+    <!-- 导出 PDF：按书生成阅读资源 -->
     <div class="grid grid-cols-1 gap-4 py-2 lg:grid-cols-5">
       <div class="card lg:col-span-3">
-        <h2>笔记编辑</h2>
-        <div class="mb-2.5 flex flex-wrap items-center gap-2.5">
-          <el-select v-model="notePid" placeholder="项目" class="!w-36" @change="noteName = ''">
-            <el-option v-for="p in notePidList" :key="p.id" :value="p.id" :label="p.name" />
+        <h2>导出 PDF（按书）</h2>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <el-select v-model="pdfPid" placeholder="项目" class="!w-44" @change="pdfBid = ''">
+            <el-option v-for="p in ov?.projects" :key="p.id" :value="p.id" :label="p.name" />
           </el-select>
-          <el-select v-model="noteName" placeholder="＋ 新笔记…" filterable allow-create class="!w-52" @change="loadNote">
-            <el-option v-for="n in noteList" :key="n.pid + '/' + n.name" :value="n.name" :label="n.name" />
+          <el-select v-model="pdfBid" placeholder="书" class="!w-44">
+            <el-option v-for="b in pdfBooks" :key="b.id" :value="b.id" :label="`${b.title} (${b.n})`" />
           </el-select>
-          <el-button type="primary" :loading="busy.note" @click="saveNote">保存并发布</el-button>
         </div>
-        <el-input v-model="noteText" type="textarea" :rows="10" placeholder="# 用 Markdown 写点什么..." />
-        <div class="mut mt-1.5">支持 GFM / 代码高亮 / [!TIP] 提示块，保存后自动同步发布</div>
+        <el-button class="mt-2.5" :loading="busy.export" @click="doPdf">导出整本书</el-button>
+        <div class="mut mt-2 truncate">已有：{{ ov?.pdfs.join('　') || '无' }}</div>
       </div>
-
-      <div class="col flex flex-col gap-4 lg:col-span-2">
-        <div class="card">
-          <h2>上传附件</h2>
-          <div class="flex flex-wrap items-center gap-2.5">
-            <el-select v-model="upPid" placeholder="目标项目" class="!w-44">
-              <el-option v-for="p in uploadProjectList" :key="p.id" :value="p.id" :label="p.name" />
-            </el-select>
-            <el-upload :auto-upload="false" multiple :on-change="onFileChange" :show-file-list="false">
-              <el-button :icon="Upload">选择文件</el-button>
-            </el-upload>
-          </div>
-          <div v-if="upFiles.length" class="mut mt-2">{{ upFiles.map((f) => f.name).join('、') }}</div>
-          <el-button
-            class="mt-2.5"
-            type="primary"
-            plain
-            :loading="busy.upload"
-            :disabled="!upFiles.length"
-            @click="doUpload"
-          >上传并同步</el-button>
-          <div class="mut mt-1.5">.md 自动成书，其它文件作为附件</div>
-        </div>
-
-        <div class="card">
-          <h2>导出 PDF</h2>
-          <div class="flex flex-wrap items-center gap-2.5">
-            <el-select v-model="pdfPid" placeholder="项目" class="!w-44" @change="pdfBid = ''">
-              <el-option v-for="p in ov?.projects" :key="p.id" :value="p.id" :label="p.name" />
-            </el-select>
-            <el-select v-model="pdfBid" placeholder="书" class="!w-44">
-              <el-option v-for="b in pdfBooks" :key="b.id" :value="b.id" :label="`${b.title} (${b.n})`" />
-            </el-select>
-          </div>
-          <el-button class="mt-2.5" :loading="busy.export" @click="doPdf">导出整本书</el-button>
-          <div class="mut mt-2 truncate">已有：{{ ov?.pdfs.join('　') || '无' }}</div>
+      <div class="card lg:col-span-2">
+        <h2>职责说明</h2>
+        <div class="mut" style="line-height: 1.9">
+          · <b>书架</b>：缓存后的离线资源，供阅读（导航「首页」）<br/>
+          · <b>笔记</b>：日常书写（导航「笔记」，独立模块）<br/>
+          · <b>本页</b>：在线资源的统一维护——项目增删改、同步、导出
         </div>
       </div>
     </div>

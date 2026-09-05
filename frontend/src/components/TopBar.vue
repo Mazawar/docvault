@@ -100,7 +100,7 @@ defineExpose({ focus: focusSearch })
       <RouterLink to="/" class="navlink" :class="{ on: path === '/' }">首页</RouterLink>
       <RouterLink to="/notes" class="navlink" :class="{ on: path === '/notes' }">笔记</RouterLink>
       <RouterLink to="/search" class="navlink" :class="{ on: path === '/search' }">搜索</RouterLink>
-      <RouterLink v-if="!isStatic()" to="/admin" class="navlink" :class="{ on: path === '/admin' }">管理</RouterLink>
+      <RouterLink v-if="!isStatic()" to="/admin" class="navlink" :class="{ on: path === '/admin' }">资源管理</RouterLink>
     </nav>
 
     <span class="flex-1"></span>
