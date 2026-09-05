@@ -57,6 +57,10 @@ function onInput() {
 function go(h: SearchHit) {
   boxOpen.value = false
   q.value = ''
+  if (h.pid === '__notes__') {
+    router.push({ path: '/notes', query: { folder: h.bid, name: h.slug } })
+    return
+  }
   router.push({ path: '/read/' + h.pid + '/' + h.bid + '/' + h.slug })
 }
 
@@ -140,7 +144,7 @@ defineExpose({ focus: focusSearch })
       />
       <div v-if="boxOpen" class="dropdown" @mousedown.prevent>
         <a v-for="h in hits" :key="h.pid + h.bid + h.slug" class="item" :href="hitUrl(h)" @click="go(h)">
-          <div class="t">{{ h.title }}</div>
+          <div class="t">{{ h.pid === '__notes__' ? '📝 ' : '' }}{{ h.title }}</div>
           <!-- eslint-disable-next-line vue/no-v-html — 后端生成的 <mark> 摘要 -->
           <div class="s" v-html="h.snip"></div>
         </a>

@@ -40,6 +40,10 @@ class NoteSpec(BaseModel):
     content: str = ''
     pid: str = 'my-notes'
 
+class NotePdfSpec(BaseModel):
+    folder: str = '我的笔记'
+    name: str = ''
+
 
 @router.get('/overview')
 def overview():
@@ -96,6 +100,17 @@ def export_pack_route():
                           lambda logcb: pack_service.export_pack(False, logcb))
     return {'ok': True}
 
+
+@router.post('/pdf-note')
+def pdf_note(spec: NotePdfSpec):
+    def work(logcb):
+        if spec.name:
+            pdf_service.export_note(spec.folder, spec.name, logcb)
+        else:
+            pdf_service.export_note_folder(spec.folder, logcb)
+    job_service.start_job('导出笔记 PDF',
+                          work)
+    return {'ok': True}
 
 @router.get('/download-pack')
 def download_pack():

@@ -26,6 +26,8 @@ export const adminApi = {
     })
   },
   exportPdf: (pid: string, bid: string) => postJSON<{ ok: boolean }>('api/admin/pdf', { pid, bid }),
+  exportNotePdf: (folder: string, name: string) =>
+    postJSON<{ ok: boolean }>('api/admin/pdf-note', { folder, name }),
 
   saveProject: (p: {
     id: string

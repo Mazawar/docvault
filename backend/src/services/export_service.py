@@ -84,6 +84,10 @@ def _build_tmp(logcb=print) -> Path:
         for n in fol['notes']:
             payload = note_service.render_payload(fol['folder'], n['name'])
             _write_json(tmp / 'd' / 'notes' / fol['folder'] / (n['name'] + '.json'), payload)
+            ntx = (config.DATA / 'notes' / fol['folder'] / (n['name'] + '.md')).read_text(
+                encoding='utf-8', errors='ignore')
+            search_idx.append({'pid': '__notes__', 'bid': fol['folder'], 'slug': n['name'],
+                               't': n['title'], 'x': content_service.search_text(ntx)})
     logcb(f"[notes] {sum(len(f['notes']) for f in notes['folders'])} pages")
     _copy_assets(tmp, bodies)
     return tmp

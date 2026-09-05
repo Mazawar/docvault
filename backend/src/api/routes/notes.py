@@ -1,6 +1,9 @@
 """笔记接口（控制器层）：笔记本/笔记 CRUD + 渲染。数据事实源在文件系统。"""
-from fastapi import APIRouter, HTTPException
+import time
+
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
+from ...core import config
 from ...services import note_service
 
 router = APIRouter(prefix='/api/notes', tags=['notes'])
@@ -10,6 +13,7 @@ class NoteSpec(BaseModel):
     folder: str = note_service.DEFAULT_FOLDER
     name: str
     content: str = ''
+    tags: list[str] | None = None
 
 
 class RenameSpec(BaseModel):
@@ -53,7 +57,43 @@ def content(folder: str, name: str):
 
 @router.post('/save')
 def save(spec: NoteSpec):
-    return _load(note_service.write, spec.folder, spec.name, spec.content)
+    return _load(note_service.write, spec.folder, spec.name, spec.content, spec.tags)
+
+
+@router.get('/search')
+def search(q: str = '', limit: int = 30):
+    return note_service.search(q, limit)
+
+
+@router.get('/backlinks/{folder}/{name}')
+def backlinks(folder: str, name: str):
+    return note_service.backlinks(folder, name)
+
+
+@router.post('/daily')
+def daily():
+    return note_service.daily()
+
+
+@router.post('/image')
+async def upload_image(file: UploadFile = File(...)):
+    data = await file.read()
+    if len(data) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail='图片超过 15MB')
+    ext = '.png' if file.content_type in (None, 'application/octet-stream') else '.' + file.content_type.split('/')[-1].split('+')[0]
+    if ext not in ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'):
+        ext = '.png'
+    url = note_service.save_image(data, ext)
+    return {'url': url, 'name': url.split('/')[-1]}
+
+
+@router.post('/attachment')
+async def upload_attachment(file: UploadFile = File(...)):
+    name = file.filename.replace(' ', '_')
+    d = config.UPLOADS / 'my-notes' / '_files'
+    d.mkdir(parents=True, exist_ok=True)
+    (d / name).write_bytes(await file.read())
+    return {'url': f'/files/my-notes/{name}', 'name': name}
 
 
 @router.post('/create')

@@ -155,6 +155,30 @@ def search(q, pid='', limit=60):
     return rows
 
 
+def note_fts_upsert(folder, name, title, body):
+    with database._lock, database.connect() as c:
+        c.execute("DELETE FROM notes_fts WHERE name=?", (name,))
+        c.execute("INSERT INTO notes_fts(folder,name,title,body) VALUES(?,?,?,?)",
+                  (folder, name, _cjk_split(title), _cjk_split(body)))
+
+
+def note_fts_delete(name):
+    with database._lock, database.connect() as c:
+        c.execute("DELETE FROM notes_fts WHERE name=?", (name,))
+
+
+def search_notes(q, limit=30):
+    clean = re.sub(r'[^\w ]+', ' ', q)[:120].strip()
+    if not clean:
+        return []
+    sql = "SELECT folder,name,title FROM notes_fts WHERE notes_fts MATCH ? ORDER BY rank LIMIT ?"
+    params = [_cjk_split(clean), max(1, min(int(limit), 100))]
+    with database.connect() as c:
+        rows = [dict(r) for r in c.execute(sql, params).fetchall()]
+        for r in rows:
+            r['title'] = _cjk_unsplit(r['title'])
+    return rows
+
 # ---------- jobs ----------
 
 def job_add(name):

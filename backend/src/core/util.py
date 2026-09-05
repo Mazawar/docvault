@@ -42,8 +42,18 @@ def fm_title(fm_block):
     return m.group(1).strip().strip('\'"') if m else None
 
 
+def _tasklist(text):
+    """GFM 任务列表 → ☐/☑（仅代码块外，避免污染示例代码）。"""
+    parts = re.split(r'(```.*?```|~~~.*?~~~)', text, flags=re.S)
+    for i in range(0, len(parts), 2):
+        parts[i] = re.sub(r'(?m)^(\s*(?:[-*+]|\d+[.)])\s+)\[ \] ', r'\1☐ ', parts[i])
+        parts[i] = re.sub(r'(?m)^(\s*(?:[-*+]|\d+[.)])\s+)\[[xX]\] ', r'\1☑ ', parts[i])
+    return ''.join(parts)
+
+
 def md_to_html(text):
     text, _ = strip_fm(text)
+    text = _tasklist(text)
     text = rewrite_refdefs(text)
     text = DEL.sub(r'<del>\1</del>', text)
     md = markdown.Markdown(**MD_KW)

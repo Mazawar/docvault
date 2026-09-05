@@ -55,7 +55,7 @@ onMounted(async () => {
     </div>
 
     <div v-for="h in hits" :key="h.pid + '/' + h.bid + '/' + h.slug" class="qitem">
-      <a :href="hitUrl(h)" class="text-[var(--text-1)] hover:text-[var(--brand)]">{{ h.title }}</a>
+      <a :href="hitUrl(h)" class="text-[var(--text-1)] hover:text-[var(--brand)]">{{ h.pid === '__notes__' ? '📝 ' : '' }}{{ h.title }}</a>
       <!-- eslint-disable-next-line vue/no-v-html — 摘要含后端生成的 <mark> -->
       <div class="snip" v-html="h.snip"></div>
     </div>

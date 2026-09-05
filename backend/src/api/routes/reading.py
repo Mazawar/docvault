@@ -1,7 +1,7 @@
 """阅读接口（控制器层）：书架 / 书目录 / 文章 / 全文搜索。"""
 from fastapi import APIRouter, HTTPException, Query
 from ...models import repository
-from ...services import content_service
+from ...services import content_service, note_service
 
 router = APIRouter(prefix='/api', tags=['reading'])
 
@@ -29,4 +29,9 @@ def article(pid: str, bid: str, slug: str):
 
 @router.get('/search')
 def search(q: str = Query(''), pid: str = Query(''), limit: int = Query(60)):
-    return {'items': repository.search(q, pid=pid, limit=limit)}
+    items = repository.search(q, pid=pid, limit=limit)
+    for r in items:
+        r['kind'] = 'article'
+    if not pid:
+        items += note_service.search(q, limit=max(5, limit // 6))
+    return {'items': items}

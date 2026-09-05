@@ -55,6 +55,7 @@ export interface SearchHit {
   slug: string
   title: string
   snip: string
+  kind?: 'article' | 'note'
 }
 
 export interface ProjectFull {

@@ -29,6 +29,11 @@ def main():
     pk.add_argument('--with-repos', action='store_true', help='附带源仓库（导入后可联网更新）')
     ipk = sub.add_parser('import-pack', help='导入资源包')
     ipk.add_argument('pack')
+    pn = sub.add_parser('pdf-note', help='导出笔记 PDF（name 省略则整本笔记本）')
+    pn.add_argument('folder')
+    pn.add_argument('name', nargs='?')
+    vt = sub.add_parser('notes-vite', help='VitePress 联动（dev/build）')
+    vt.add_argument('mode', nargs='?', default='dev', choices=['dev', 'build'])
     i = sub.add_parser('import', help='从 projects.json 重新导入项目配置')
 
     a2 = ap.parse_args()
@@ -52,6 +57,18 @@ def main():
         pack_service.export_pack(with_repos=a2.with_repos)
     elif a2.cmd == 'import-pack':
         pack_service.import_pack(a2.pack)
+    elif a2.cmd == 'pdf-note':
+        from .services import note_service
+        if a2.name:
+            pdf_service.export_note(a2.folder, a2.name)
+        else:
+            pdf_service.export_note_folder(a2.folder)
+    elif a2.cmd == 'notes-vite':
+        import sys as _sys
+        from pathlib import Path as _P
+        _sys.path.insert(0, str(_P(__file__).resolve().parents[2]))
+        from scripts.notes_vite import run
+        run(a2.mode)
     elif a2.cmd == 'import':
         n = sync_service.import_projects_json()
         print(f'imported {n} projects')

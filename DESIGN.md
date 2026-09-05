@@ -71,11 +71,11 @@ pdf/*.pdf                   整书导出
 | 阶段 | 内容 |
 |---|---|
 | P0 可用性 ✅ **已完成 2026-09-05** | 独立路由 `/notes`：左栏笔记本+笔记列表 / 右栏编辑+实时预览分栏；新建/重命名/删除；书架与全局搜索已排除笔记（upload 型项目），离线包含预渲染笔记 |
-| P1 组织 | front-matter 标签 + 按标签/笔记本过滤；FTS5 笔记全文索引并入 `/api/search` |
-| P2 富输入 | 编辑器图片粘贴上传（进 `data/assets` 复用 sha256 去重）；拖拽附件 |
-| P3 导出 | 单篇/整本笔记导出 PDF（复用 pdf_service 管线） |
-| P4 联动 | `data/notes` 一键作为 VitePress srcDir（dev HMR 写作 + build 产物接回书架）；CLI `notes-vite` |
-| P5 可选 | `[[]]` 双链与反向链接面板；每日笔记 |
+| P1 组织 ✅ | front-matter 标签 + 标签/文本过滤；notes_fts 并入 `/api/search`（kind=note，📝 前缀） |
+| P2 富输入 ✅ | 粘贴/拖拽图片进 `data/assets`（sha256 去重）；附件入 `_files`，光标处插链接 |
+| P3 导出 ✅ | 单篇/整本笔记本 PDF（封面+页码目录），CLI `pdf-note` |
+| P4 联动 ✅ | CLI `notes-vite dev/build`：自动脚手架+侧栏生成+笔记副本同步，构建实测 5.1s 通过 |
+| P5 可选 ✅ | `[[双链]]`（解析/missing 样式）+ 反向链接面板 + 每日笔记按钮 |
 
 ### 迁移
 - `my-notes` 上传项目一键迁移为 `data/notes/我的笔记/`（书=笔记本、文章=笔记），书架中该消失。

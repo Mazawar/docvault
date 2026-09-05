@@ -59,5 +59,8 @@ export async function searchAll(q: string, pid = ''): Promise<SearchHit[]> {
 }
 
 export function hitUrl(hit: SearchHit): string {
+  if (hit.pid === '__notes__') {
+    return `#/notes?folder=${encodeURIComponent(hit.bid)}&name=${encodeURIComponent(hit.slug)}`
+  }
   return readUrl(hit.pid, hit.bid, hit.slug)
 }

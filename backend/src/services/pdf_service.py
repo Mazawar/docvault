@@ -4,8 +4,10 @@ Windows 下 weasyprint 需要 GTK 运行库；缺失时导出任务返回明确�
 不做任何浏览器注入或外部进程调用。
 """
 import html as H
+import time
 from pathlib import Path
 from ..core import config, util
+from . import note_service
 from ..models import repository
 
 PDF_CSS = '''
@@ -93,3 +95,44 @@ def export_book(pid, bid, logcb=print):
 def list_pdfs():
     config.PDF_DIR.mkdir(parents=True, exist_ok=True)
     return sorted(p.name for p in config.PDF_DIR.glob('*.pdf'))
+
+
+def _note_html(title, sections, subtitle):
+    toc, secs = [], []
+    for i, (t, body) in enumerate(sections, 1):
+        secs.append(f'<section id="s-{i}"><h1>{H.escape(t)}</h1>{body}</section>')
+        toc.append(f'<li><a href="#s-{i}">{H.escape(t)}</a></li>')
+    return ('<!DOCTYPE html><html><head><meta charset="utf-8"><style>' + PDF_CSS +
+            '</style></head><body><div class="cover"><h1>' + H.escape(title) +
+            '</h1><p>' + H.escape(subtitle) + '</p></div><nav class="toc"><h1>目录</h1><ol>' +
+            ''.join(toc) + '</ol></nav>' + ''.join(secs) + '</body></html>')
+
+
+def export_note(folder, name, logcb=print):
+    from weasyprint import HTML
+    payload = note_service.render_payload(folder, name)
+    html = _note_html(payload['title'], [(payload['title'], payload['html'])],
+                      f'笔记 · {folder} · {payload["updated"]}')
+    config.PDF_DIR.mkdir(parents=True, exist_ok=True)
+    out = config.PDF_DIR / f'note__{folder}__{name}.pdf'
+    HTML(string=html, base_url=str(config.DATA)).write_pdf(str(out))
+    logcb(f'-> {out.name} ({out.stat().st_size / 1048576:.1f} MB)')
+    return out
+
+
+def export_note_folder(folder, logcb=print):
+    from weasyprint import HTML
+    idx = [f for f in note_service.list_index() if f['folder'] == folder]
+    if not idx:
+        raise KeyError(folder)
+    secs = []
+    for n in idx[0]['notes']:
+        payload = note_service.render_payload(folder, n['name'])
+        secs.append((n['title'], payload['html']))
+        logcb(f'  {n["title"][:40]}')
+    html = _note_html(f'{folder} · 笔记本', secs, f'DocVault 笔记导出 · {time.strftime("%Y-%m-%d")}')
+    config.PDF_DIR.mkdir(parents=True, exist_ok=True)
+    out = config.PDF_DIR / f'notebook__{folder}.pdf'
+    HTML(string=html, base_url=str(config.DATA)).write_pdf(str(out))
+    logcb(f'-> {out.name} ({out.stat().st_size / 1048576:.1f} MB)')
+    return out

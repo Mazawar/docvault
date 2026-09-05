@@ -4,6 +4,7 @@ import { getJSON, postJSON, isStatic } from './http'
 export interface NoteItem {
   name: string
   title: string
+  tags: string[]
   updated: string
   ts: number
   size: number
@@ -34,11 +35,12 @@ export async function noteRendered(folder: string, name: string): Promise<NoteRe
 }
 
 export const noteContent = (folder: string, name: string) =>
-  getJSON<{ folder: string; name: string; title: string; content: string; updated: string }>(
+  getJSON<{ folder: string; name: string; title: string; tags: string[]; content: string; updated: string }>(
     `api/notes/content/${enc(folder)}/${enc(name)}`)
 
-export const saveNote = (folder: string, name: string, content: string) =>
-  postJSON<{ folder: string; name: string }>('api/notes/save', { folder, name, content })
+export const saveNote = (folder: string, name: string, content: string, tags?: string[]) =>
+  postJSON<{ folder: string; name: string; tags: string[] }>(
+    'api/notes/save', { folder, name, content, tags })
 
 export const createNote = (folder: string, name: string) =>
   postJSON<{ folder: string; name: string }>('api/notes/create', { folder, name })
@@ -53,3 +55,32 @@ export const createFolder = (name: string) => postJSON<{ ok: boolean }>('api/not
 
 export const renderPreview = (folder: string, name: string, content: string) =>
   postJSON<{ html: string }>('api/notes/render-preview', { folder, name, content })
+
+export const searchNotes = (q: string, limit = 30) =>
+  getJSON<{ kind: string; pid: string; bid: string; slug: string; title: string; snip: string }[]>(
+    `api/notes/search?q=${encodeURIComponent(q)}&limit=${limit}`)
+
+export const backlinks = (folder: string, name: string) =>
+  getJSON<{ folder: string; name: string; title: string }[]>(
+    `api/notes/backlinks/${enc(folder)}/${enc(name)}`)
+
+export const daily = () =>
+  postJSON<{ folder: string; name: string; title: string; content: string }>('api/notes/daily')
+
+export async function uploadImage(file: File): Promise<{ url: string; name: string }> {
+  const fd = new FormData()
+  fd.append('file', file)
+  const r = await fetch('api/notes/image', { method: 'POST', body: fd })
+  const d = await r.json()
+  if (!r.ok) throw new Error(d.detail || '图片上传失败')
+  return d
+}
+
+export async function uploadAttachment(file: File): Promise<{ url: string; name: string }> {
+  const fd = new FormData()
+  fd.append('file', file)
+  const r = await fetch('api/notes/attachment', { method: 'POST', body: fd })
+  const d = await r.json()
+  if (!r.ok) throw new Error(d.detail || '附件上传失败')
+  return d
+}
