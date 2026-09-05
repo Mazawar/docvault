@@ -204,6 +204,8 @@ def index_payload():
     """portal / 侧栏 / 离线静态模式共用的书架数据。"""
     out = []
     for p in list_projects():
+        if p['type'] == 'upload':
+            continue  # 笔记走独立 /notes 模块（DESIGN.md 笔记模块）
         bs = [{'id': b['id'], 'title': b['title'], 'n': b['n']} for b in list_books(p['id'])]
         item = {'id': p['id'], 'name': p['name'], 'type': p['type'],
                 'updated': p['updated'] or '-', 'books': bs, 'files': []}

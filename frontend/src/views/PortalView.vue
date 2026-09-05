@@ -37,6 +37,7 @@ function fmtDay(s: string): string {
       </p>
       <div class="flex justify-center gap-2.5">
         <a class="btn-pri" href="#shelf">开始阅读</a>
+        <a class="btn-ghost" href="#/notes">我的笔记</a>
         <a v-if="!isStatic()" class="btn-ghost" href="#/admin">管理资源</a>
       </div>
     </section>

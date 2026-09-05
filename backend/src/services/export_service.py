@@ -20,7 +20,7 @@ import zipfile
 from pathlib import Path
 from ..core import config, util
 from ..models import repository
-from . import content_service
+from . import content_service, note_service
 
 
 def _write_json(path: Path, data):
@@ -62,6 +62,8 @@ def _build_tmp(logcb=print) -> Path:
 
     search_idx, bodies = [], []
     for p in repository.list_projects():
+        if p['type'] == 'upload':
+            continue  # 笔记走独立 /notes 模块
         for b in repository.list_books(p['id']):
             articles = repository.list_articles(p['id'], b['id'])
             _write_json(tmp / 'd' / p['id'] / b['id'] / 'toc.json',
@@ -76,6 +78,13 @@ def _build_tmp(logcb=print) -> Path:
                                    't': a['title'], 'x': content_service.search_text(payload['html'])})
             logcb(f"[{p['id']}/{b['id']}] {len(articles)} pages")
     _write_json(tmp / 'd' / 'search.json', search_idx)
+    notes = note_service.static_index()
+    _write_json(tmp / 'd' / 'notes' / 'index.json', notes)
+    for fol in notes['folders']:
+        for n in fol['notes']:
+            payload = note_service.render_payload(fol['folder'], n['name'])
+            _write_json(tmp / 'd' / 'notes' / fol['folder'] / (n['name'] + '.json'), payload)
+    logcb(f"[notes] {sum(len(f['notes']) for f in notes['folders'])} pages")
     _copy_assets(tmp, bodies)
     return tmp
 

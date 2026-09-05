@@ -50,12 +50,8 @@ def overview():
                                         for b in books]})
     z = export_service.latest_zip()
     pk = pack_service.latest_pack()
-    notes = []
-    for up in [p for p in projects if p['type'] == 'upload']:
-        ndir = config.UPLOADS / up['id']
-        if ndir.exists():
-            notes += [{'pid': up['id'], 'name': f.name, 'size': f.stat().st_size}
-                      for f in sorted(ndir.glob('*.md'))]
+    notes = [{'pid': 'my-notes', 'name': n['name'], 'size': n['size']}
+             for fol in note_service.list_index() for n in fol['notes']]
     return {'projects': projects,
             'pdfs': pdf_service.list_pdfs(),
             'zip': z.name if z else None,
@@ -202,12 +198,12 @@ def note_get(pid: str = 'my-notes', name: str = ''):
 
 @router.post('/note')
 def note_save(spec: NoteSpec):
-    name = Path(spec.name).name or 'untitled.md'
-    if not name.endswith('.md'):
-        name += '.md'
-    d = config.UPLOADS / spec.pid
-    d.mkdir(parents=True, exist_ok=True)
-    (d / name).write_text(spec.content, encoding='utf-8')
-    job_service.start_job(f'sync-{spec.pid}',
-                          lambda logcb: sync_service.sync_all(spec.pid, logcb))
+    name = Path(spec.name).name or 'untitled'
+    name = name[:-3] if name.endswith('.md') else name
+    if not name.strip():
+        raise HTTPException(status_code=400, detail='name 必填')
+    try:
+        note_service.write(note_service.DEFAULT_FOLDER, name, spec.content)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {'ok': True, 'name': name}

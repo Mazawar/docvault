@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from ..core import config
 from ..models import database
-from .routes import admin, reading
+from .routes import admin, notes, reading
 
 _FALLBACK_PAGE = ('<!DOCTYPE html><meta charset="utf-8"><title>DocVault</title>'
                   '<body style="font-family:sans-serif;padding:40px">'
@@ -18,6 +18,7 @@ def create_app() -> FastAPI:
     database.init()
     app = FastAPI(title='DocVault', docs_url=None, redoc_url=None)
     app.include_router(reading.router)
+    app.include_router(notes.router)
     app.include_router(admin.router)
 
     @app.get('/api/status')

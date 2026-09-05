@@ -8,6 +8,7 @@ const router = createRouter({
     // slug 是嵌套路径（如 海量数据处理/01.xxx），必须允许跨段匹配
     { path: '/read/:pid/:bid/:slug(.*)?', name: 'reader', component: () => import('@/views/ReaderView.vue') },
     { path: '/search', name: 'search', component: () => import('@/views/SearchView.vue') },
+    { path: '/notes', name: 'notes', component: () => import('@/views/NotesView.vue') },
     { path: '/admin', name: 'admin', component: () => import('@/views/AdminView.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/' }
   ],
