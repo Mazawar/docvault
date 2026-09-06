@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Delete, Edit, Download, Upload, MoreFilled } from '@element-plus/icons-vue'
+import { Plus, Refresh, Delete, Edit, Download, Upload, MoreFilled, Brush } from '@element-plus/icons-vue'
 import { adminApi } from '@/api/admin'
 import { notesIndex } from '@/api/notes'
 import { modeRef } from '@/api/http'
@@ -342,12 +342,18 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
             :loading="syncActive(p.id)"
             @click="syncOne(p.id)"
           >同步</el-button>
-          <el-dropdown trigger="click" @command="(c: string) => c === 'edit' ? editProject(p.id) : c === 'purge' ? purgeRepos(p.id, p.name) : delProject(p.id)">
+          <el-button
+            v-if="p.type === 'github'"
+            size="small"
+            :icon="Brush"
+            title="清理仓库缓存（文章与图片保留，下次同步重新克隆）"
+            @click="purgeRepos(p.id, p.name)"
+          >清理</el-button>
+          <el-dropdown trigger="click" @command="(c: string) => c === 'edit' ? editProject(p.id) : delProject(p.id)">
             <el-button text :icon="MoreFilled" class="morebtn" />
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="edit" :icon="Edit">编辑</el-dropdown-item>
-                <el-dropdown-item v-if="p.type === 'github'" command="purge">清理仓库缓存</el-dropdown-item>
                 <el-dropdown-item command="del" :icon="Delete" divided>删除</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -424,11 +430,6 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
             <span>导出产物<i>{{ distDesc }}</i></span>
             <b class="tabular-nums">{{ st.dist.mb }}MB<i v-if="st.dist.temp.mb">临时 {{ st.dist.temp.mb }}MB</i></b>
             <el-button size="small" :loading="busy['purge-dist'] || jobRunning('清理导出产物')" @click="purgeDist">清理全部</el-button>
-          </div>
-          <div class="strow">
-            <span>仓库缓存<i>第三方源码，同步时重新克隆</i></span>
-            <b class="tabular-nums">{{ st.repos_mb }}MB</b>
-            <span class="text-xs text-[var(--text-3)]">在上方项目行「⋯」清理</span>
           </div>
           <div class="strow">
             <span>文章数据库<i>核心数据，不可清理</i></span>
@@ -674,7 +675,7 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
   grid-template-columns: minmax(0, 1fr) auto 110px;
   gap: 10px;
   align-items: center;
-  padding: 6px 0;
+  padding: 4.5px 0;
   font-size: 13px;
   color: var(--text-3);
 }
@@ -688,8 +689,7 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
   text-align: right;
 }
 .strow i {
-  display: block;
-  margin-top: 1px;
+  margin-left: 6px;
   font-size: 11.5px;
   font-style: normal;
   color: var(--text-3);
