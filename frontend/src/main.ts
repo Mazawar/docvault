@@ -10,6 +10,7 @@ import App from './App.vue'
 import router from './router'
 import { useThemeStore } from '@/stores/theme'
 import { detectMode } from '@/api/http'
+import './lib/mdconfig'
 
 const app = createApp(App)
 app.use(createPinia())

@@ -82,6 +82,11 @@ async function loadArticle() {
     buildToc()
     onScroll()
     checkRead()
+    // 跨页链接 #/read/...#锚点 中的锚点：落地后滚到对应标题
+    if (route.hash) {
+      const el = document.getElementById(decodeURIComponent(String(route.hash).slice(1)))
+      el?.scrollIntoView({ block: 'start' })
+    }
   } catch {
     art.value = null
   } finally {
@@ -149,6 +154,25 @@ function goto(slug2: string) {
   window.location.hash = toUrl(pid.value, bid.value, slug2)
 }
 
+/** 正文与目录里的 #锚点 就地滚动；外链新标签打开（hash 路由下不能让浏览器改写 location.hash） */
+function onAnchorClick(e: MouseEvent) {
+  const a = (e.target as HTMLElement).closest('a')
+  if (!a) return
+  const href = a.getAttribute('href')
+  if (!href) return
+  if (href.startsWith('http')) {
+    if (!a.target) {
+      a.target = '_blank'
+      a.rel = 'noopener'
+    }
+    return
+  }
+  if (!href.startsWith('#') || href.startsWith('#/')) return
+  e.preventDefault()
+  const el = document.getElementById(decodeURIComponent(href.slice(1)))
+  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 watch([pid, bid], loadBook)
 watch(slug, loadArticle)
 watch(readMap, () => nextTick())
@@ -165,7 +189,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex">
+  <div class="flex" @click="onAnchorClick">
     <div id="progress" :style="{ width: progress + '%' }"></div>
     <div class="backdrop" :class="{ show: drawerOpen }" @click="drawerOpen = false"></div>
 

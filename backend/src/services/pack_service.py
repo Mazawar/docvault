@@ -16,8 +16,9 @@ import time
 import zipfile
 from pathlib import Path
 
-from ..core import config
+from ..core import config, util
 from ..models import repository
+from . import note_service
 
 PACK_GLOB = 'DocVault-pack-*.zip'
 
@@ -45,40 +46,100 @@ def _add_dir(z: zipfile.ZipFile, root: Path, arc_root: str) -> int:
     return n
 
 
-def export_pack(with_repos=False, logcb=print) -> Path:
+def export_pack(with_repos=False, logcb=print, pid: str | None = None,
+                out: Path | None = None) -> Path:
+    """pid=None 导出全量实例包（含笔记/前端产物）；pid=项目 id 只导出该项目
+    （仅其文章+引用到的图片，供导入到已有实例追加）。
+    out=None 时落入 dist 并清理旧包（导出中心流程）；out=指定路径时直接写到该
+    路径（单项目下载流程，不进导出中心）。"""
     stamp = time.strftime('%Y%m%d')
+    if pid:
+        stamp += '-' + pid
     config.DIST.mkdir(parents=True, exist_ok=True)
-    out = config.DIST / f'DocVault-pack-{stamp}.zip'
-    tmp_zip = config.DIST / f'.{out.name}.tmp'
+    if out is None:
+        out = config.DIST / f'DocVault-pack-{stamp}.zip'
+    tmp_zip = out.with_name(out.name + '.tmp')
     work = config.DIST / '.packtmp'
     shutil.rmtree(work, ignore_errors=True)
     work.mkdir(parents=True)
 
     logcb('快照数据库...')
     db = _snapshot_db(work)
+    if pid:
+        con = sqlite3.connect(db)
+        with con:
+            con.execute('DELETE FROM articles WHERE pid != ?', (pid,))
+            con.execute('DELETE FROM books WHERE pid != ?', (pid,))
+            con.execute('DELETE FROM projects WHERE id != ?', (pid,))
+            con.execute('DELETE FROM articles_fts WHERE pid != ?', (pid,))
+            con.execute('DELETE FROM notes_fts')
+            con.execute('DELETE FROM jobs')
+        con.close()
+        meta_projects = [pid]
+    else:
+        meta_projects = [p['id'] for p in repository.list_projects()]
+
+    # 结构清单：包是机器格式（DB+图片池），manifest 给人看项目/书/文章的结构
+    con = sqlite3.connect(db)
+    con.row_factory = sqlite3.Row
+    manifest = []
+    for r in con.execute('SELECT id, name, type FROM projects ORDER BY sort, id'):
+        books = [{'id': b['id'], 'title': b['title'],
+                  'articles': b['n']}
+                 for b in con.execute(
+                     """SELECT b.id, b.title,
+                               (SELECT COUNT(*) FROM articles a
+                                 WHERE a.pid = b.pid AND a.bid = b.id) AS n
+                        FROM books b WHERE b.pid = ? ORDER BY b.rowid""", (r['id'],))]
+        arts = sum(b['articles'] for b in books)
+        manifest.append({'id': r['id'], 'name': r['name'], 'type': r['type'],
+                         'articles': arts, 'books': books})
+    con.close()
+
     meta = {
         'format': 1,
         'app': 'DocVault',
         'exported': time.strftime('%Y-%m-%d %H:%M:%S'),
-        'projects': [p['id'] for p in repository.list_projects()],
+        'projects': meta_projects,
         'with_repos': bool(with_repos),
+        'manifest': manifest,
     }
-    (work / 'meta.json').write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
+    (work / 'meta.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding='utf-8')
 
-    with zipfile.ZipFile(tmp_zip, 'w', zipfile.ZIP_STORED) as z:
+    with zipfile.ZipFile(tmp_zip, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         z.write(db, 'docvault.db')
         z.write(work / 'meta.json', 'meta.json')
-        logcb('图片缓存...')
-        logcb(f"assets: {_add_dir(z, config.ASSETS, 'assets')}")
-        _add_dir(z, config.UPLOADS, 'uploads')
-        _add_dir(z, config.PDF_DIR, 'pdf')
-        front = config.frontend_dist()
-        if front:
-            logcb('前端产物（离线机免 npm）...')
-            _add_dir(z, front, 'frontend-dist')
-        if with_repos:
-            logcb('源仓库（供后续联网同步）...')
-            _add_dir(z, config.REPOS, 'repos')
+        if pid:
+            # 单项目包：只带该项目文章引用到的图片
+            logcb('图片缓存（仅本项目引用）...')
+            import re as _re
+            ref = set()
+            _con = sqlite3.connect(db)
+            for (body,) in _con.execute('SELECT body FROM articles'):
+                ref |= {m.group(1) for m in _re.finditer(r'src="/a/([^"]+)"', body)}
+                ref |= {util.asset_name(u) for u in util.collect_urls(body)}
+            _con.close()
+            n = 0
+            for name in sorted(ref):
+                f = config.ASSETS / name
+                if f.is_file():
+                    z.write(f, f'assets/{name}')
+                    n += 1
+            logcb(f'assets: {n}')
+        else:
+            logcb('图片缓存...')
+            logcb(f"assets: {_add_dir(z, config.ASSETS, 'assets')}")
+            _add_dir(z, config.UPLOADS, 'uploads')
+            _add_dir(z, config.PDF_DIR, 'pdf')
+            logcb('笔记（纯 Markdown）...')
+            logcb(f"notes: {_add_dir(z, note_service.ROOT, 'notes')}")
+            front = config.frontend_dist()
+            if front:
+                logcb('前端产物（离线机免 npm）...')
+                _add_dir(z, front, 'frontend-dist')
+            if with_repos:
+                logcb('源仓库（供后续联网同步）...')
+                _add_dir(z, config.REPOS, 'repos')
 
     # 同名覆盖失败（旧包正被下载/杀软扫描）→ 落盘为带时分秒的新包，绝不让导出失败
     for i in range(3):
@@ -92,13 +153,15 @@ def export_pack(with_repos=False, logcb=print) -> Path:
                 break
             time.sleep(2)
     shutil.rmtree(work, ignore_errors=True)
-    # 资源包永远只保留最新一个
-    packs = sorted(config.DIST.glob(PACK_GLOB))
-    for old in packs[:-1]:
-        try:
-            old.unlink()
-        except OSError:
-            pass
+    # 导出中心流程：永远只保留本次生成的这个包
+    if out.parent == config.DIST and not out.name.startswith('.'):
+        for old in config.DIST.glob(PACK_GLOB):
+            if old == out:
+                continue
+            try:
+                old.unlink()
+            except OSError:
+                pass
     logcb(f'{out.name} ({out.stat().st_size / 1048576:.0f} MB)')
     return out
 
@@ -170,6 +233,7 @@ def import_pack(zip_path, logcb=print) -> dict:
     logcb(f'assets +{a}')
     logcb(f"uploads +{_copy_tree(work / 'uploads', config.UPLOADS)}")
     logcb(f"pdf +{_copy_tree(work / 'pdf', config.PDF_DIR)}")
+    logcb(f"notes +{_copy_tree(work / 'notes', note_service.ROOT)}（同名文件跳过）")
     fd = _copy_tree(work / 'frontend-dist', config.DATA / 'frontend-dist')
     if fd:
         logcb(f'frontend-dist +{fd}（离线机无需 npm build）')

@@ -13,6 +13,15 @@ const ov = ref<Overview | null>(null)
 const staticMode = computed(() => modeRef.value === 'static')
 let timer: number | null = null
 
+/** 项目卡默认只显示两行（3 列 × 2 行），其余进「查看更多」展开的瀑布流 */
+const ADMIN_GRID_CAP = 6
+const showAllProjects = ref(false)
+const visibleProjects = computed(() => {
+  const list = ov.value?.projects ?? []
+  return showAllProjects.value ? list : list.slice(0, ADMIN_GRID_CAP)
+})
+const hiddenProjects = computed(() => Math.max(0, (ov.value?.projects.length ?? 0) - ADMIN_GRID_CAP))
+
 const knownJobs = new Map<number, string>()
 const jobTitle = (name: string) => (name.startsWith('sync-') ? `同步 ${name.slice(5)}` : name)
 
@@ -64,6 +73,10 @@ async function act(key: string, fn: () => Promise<unknown>, okMsg: string) {
 }
 
 const syncOne = (pid: string) => act(`sync-${pid}`, () => adminApi.sync(pid), `已提交同步：${pid}`)
+function downloadPack(pid: string) {
+  ElMessage.info('正在打包，完成后浏览器将开始下载…')
+  window.location.href = adminApi.projectPackUrl(pid)
+}
 /* ---------- 存储与清理 ---------- */
 const st = ref<Awaited<ReturnType<typeof adminApi.storage>> | null>(null)
 async function loadStorage() {
@@ -259,20 +272,54 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
       </div>
     </div>
 
-    <!-- 项目卡片栅格 -->
-    <div class="projgrid">
-      <div v-for="p in ov?.projects" :key="p.id" class="projcard" :class="{ running: syncActive(p.id) }">
+    <!-- 项目管理：两行式列表，默认 6 行，可展开 -->
+    <div class="plist">
+      <div v-for="p in visibleProjects" :key="p.id" class="pmrow" :class="{ running: syncActive(p.id) }">
         <Transition name="fade">
           <div v-if="syncActive(p.id)" class="edgebar"></div>
         </Transition>
-        <div class="projhead">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <b class="truncate text-[15px]">{{ p.name }}</b>
-              <span class="ptype">{{ p.type === 'notebook' ? '笔记本' : p.type === 'upload' ? '上传' : 'GitHub' }}</span>
-            </div>
-            <div class="mut mt-0.5 truncate">{{ p.type === 'github' ? p.repo : p.type === 'notebook' ? '笔记本 · ' + p.repo : '本地目录' }} · 同步于 {{ p.updated || '从未' }}</div>
+        <div class="pmain">
+          <div class="pline1">
+            <b class="truncate">{{ p.name }}</b>
+            <span class="ptype">{{ p.type === 'notebook' ? '笔记本' : p.type === 'upload' ? '上传' : 'GitHub' }}</span>
+            <span class="prepo truncate">
+              {{ p.type === 'github' ? p.repo : p.type === 'notebook' ? '笔记本 · ' + p.repo : '本地目录' }}
+              · 同步于 {{ p.updated || '从未' }}
+            </span>
           </div>
+          <div class="pline2">
+            <el-tag
+              v-for="b in p.books.slice(0, 4)"
+              :key="b.id"
+              class="booktag"
+              @click="router.push(`/read/${p.id}/${b.id}/`)"
+            >
+              {{ b.title }} · {{ b.n }}
+            </el-tag>
+            <span v-if="p.books.length > 4" class="bmore">共 {{ p.books.length }} 本</span>
+            <span v-if="!p.books.length" class="mut text-xs">尚未同步</span>
+          </div>
+        </div>
+        <div class="pside">
+          <span class="psize">
+            {{ p.books.length }} 本书
+            <template v-if="st?.projects.find(x => x.id === p.id)?.repos_mb">
+              · {{ st.projects.find(x => x.id === p.id)?.repos_mb }}MB
+            </template>
+          </span>
+          <el-button
+            size="small"
+            :icon="Download"
+            :disabled="!p.updated"
+            :title="p.updated ? '下载该项目资源包' : '先同步一次才能下载'"
+            @click="downloadPack(p.id)"
+          >下载</el-button>
+          <el-button
+            size="small"
+            :icon="Refresh"
+            :loading="syncActive(p.id)"
+            @click="syncOne(p.id)"
+          >同步</el-button>
           <el-dropdown trigger="click" @command="(c: string) => c === 'edit' ? editProject(p.id) : c === 'purge' ? purgeRepos(p.id, p.name) : delProject(p.id)">
             <el-button text :icon="MoreFilled" class="morebtn" />
             <template #dropdown>
@@ -284,35 +331,15 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
             </template>
           </el-dropdown>
         </div>
-        <div class="flex flex-wrap gap-1.5 py-3">
-          <el-tag
-            v-for="b in p.books"
-            :key="b.id"
-            class="booktag"
-            @click="router.push(`/read/${p.id}/${b.id}/`)"
-          >
-            {{ b.title }} · {{ b.n }}
-          </el-tag>
-          <span v-if="!p.books.length" class="mut text-xs">尚未同步</span>
-        </div>
-        <div class="projfoot">
-          <span class="mut">
-            {{ p.books.length }} 本书
-            <template v-if="st?.projects.find(x => x.id === p.id)?.repos_mb">
-              · 仓库 {{ st.projects.find(x => x.id === p.id)?.repos_mb }}MB
-            </template>
-          </span>
-          <el-button
-            size="small"
-            :icon="Refresh"
-            :loading="syncActive(p.id)"
-            @click="syncOne(p.id)"
-          >同步</el-button>
-        </div>
       </div>
 
-      <button class="addcard" @click="newProject">
-        <el-icon :size="18"><Plus /></el-icon>
+      <button v-if="hiddenProjects > 0 || showAllProjects" class="pmrow pmrow-more" @click="showAllProjects = !showAllProjects">
+        <template v-if="!showAllProjects">还有 {{ hiddenProjects }} 个项目 · 查看全部 →</template>
+        <template v-else>收起 ↑</template>
+      </button>
+
+      <button class="pmrow pmrow-add" @click="newProject">
+        <el-icon :size="16"><Plus /></el-icon>
         添加项目
       </button>
     </div>
@@ -334,7 +361,7 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
             <a v-if="ov?.pack" :href="adminApi.downloadPackUrl">
               <el-button size="small" type="primary" :icon="Download">下载资源包</el-button>
             </a>
-            <span v-if="ov?.pack" class="pmut">{{ ov.pack }}（{{ fmtSize(ov.packSize) }}）</span>
+            <span v-if="ov?.pack" class="pmut">{{ ov.pack }}（{{ fmtSize(ov.packSize ?? 0) }}）</span>
             <span v-else-if="!busy['export-pack'] && !jobRunning('生成资源包')" class="pmut">尚未生成</span>
           </div>
         </div>
@@ -476,29 +503,90 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
   gap: 8px;
   flex-wrap: wrap;
 }
-.projgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.projcard {
-  position: relative;
-  overflow: hidden;
+/* 项目管理列表：两行式行卡，默认 6 行可展开 */
+.plist {
   border: 1px solid var(--divider);
   border-radius: 10px;
-  padding: 14px 16px 10px;
   background: var(--bg);
-  transition: border-color 0.15s;
+  overflow: hidden;
+  margin-bottom: 20px;
 }
-.projcard:hover {
-  border-color: var(--text-3);
-}
-.projhead {
+.pmrow {
+  position: relative;
+  overflow: hidden;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--divider);
+  transition: background 0.15s;
+}
+.pmrow:last-child {
+  border-bottom: none;
+}
+.pmrow:hover {
+  background: var(--bg-soft);
+}
+.pmain {
+  min-width: 0;
+  flex: 1;
+}
+.pline1 {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+.pline1 b {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.prepo {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pline2 {
+  margin-top: 5px;
+  display: flex;
+  gap: 6px;
+  overflow: hidden;
+}
+.bmore {
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  align-self: center;
+}
+.pside {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.psize {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.pmrow-more,
+.pmrow-add {
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-3);
+  background: transparent;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background 0.15s, color 0.15s;
+}
+.pmrow-more:hover,
+.pmrow-add:hover {
+  color: var(--brand);
+  background: var(--bg-soft);
+}
+.pmrow-add {
+  border-bottom-style: dashed;
 }
 .morebtn {
   color: var(--text-3);
@@ -522,33 +610,6 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
 .booktag:hover {
   color: var(--brand);
   border-color: var(--brand);
-}
-.projfoot {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid var(--divider);
-  padding-top: 8px;
-  margin-top: 2px;
-}
-.addcard {
-  border: 1px dashed var(--divider);
-  border-radius: 10px;
-  min-height: 120px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  background: transparent;
-  color: var(--text-3);
-  font-size: 13.5px;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-.addcard:hover {
-  border-color: var(--text-3);
-  color: var(--text-1);
 }
 .card {
   margin-bottom: 16px;

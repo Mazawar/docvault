@@ -146,8 +146,8 @@ watch([content, titleInput, tags], () => {
     draftSavedAt.value = new Date().toLocaleTimeString()
   } catch { /* ignore */ }
   if (timer) window.clearTimeout(timer)
-  timer.value = window.setTimeout(() => {
-    if (!dirty.value) return
+  timer = window.setTimeout(() => {
+    if (!dirty.value || !activeNote.value) return
     saveNote(activeFolder.value, activeNote.value.name, content.value, tags.value,
       titleInput.value.trim()).then(() => {
       dirty.value = false

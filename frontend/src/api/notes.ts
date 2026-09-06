@@ -35,7 +35,7 @@ export async function noteRendered(folder: string, name: string): Promise<NoteRe
 }
 
 export const noteContent = (folder: string, name: string) =>
-  getJSON<{ folder: string; name: string; title: string; tags: string[]; content: string; updated: string }>(
+  getJSON<{ folder: string; name: string; title: string; tags: string[]; content: string; updated: string; fm_title?: string }>(
     `api/notes/content/${enc(folder)}/${enc(name)}`)
 
 export const saveNote = (

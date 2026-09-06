@@ -1,9 +1,9 @@
-/* 正文排版（与后端渲染出的 HTML 类名对应：codehilite / vp-alert） */
-.article-body {
-  max-width: 784px;
-  margin: 0 auto;
-  padding: 34px 40px 60px;
+/* 正文排版。@mixin dv-typography 注入两处：
+   1. .article-body —— 旧离线包的预渲染 HTML 回退路径；
+   2. .article-body .md-editor-preview —— 新管线（md-editor-v3 内置主题之上，
+      双类名选择器保证优先级稳定，不依赖 CSS 加载顺序）。 */
 
+@mixin dv-typography {
   h2,
   h3 {
     scroll-margin-top: calc(60px + 14px); /* 锚点定位避开固定顶栏 */
@@ -77,6 +77,20 @@
     font-family: 'JetBrains Mono', ui-monospace, Consolas, 'Noto Sans Mono CJK SC', monospace;
   }
 
+  del {
+    color: #999;
+  }
+}
+
+.article-body {
+  max-width: 784px;
+  margin: 0 auto;
+  padding: 34px 40px 60px;
+
+  @include dv-typography;
+
+  /* ---- 以下仅旧 html 回退路径出现的类（codehilite/vp-alert/admonition） ---- */
+
   .codehilite {
     position: relative;
     background: var(--code-bg);
@@ -117,9 +131,10 @@
     border-color: var(--brand);
   }
 
-  .vp-alert {
+  .vp-alert,
+  .admonition {
     margin: 18px 0;
-    padding: 14px 18px;
+    padding: 12px 18px;
     border: 1px solid var(--divider);
     border-left: 4px solid var(--brand);
     border-radius: 8px;
@@ -131,30 +146,138 @@
       margin: 4px 0;
     }
 
-    .vp-alert-title {
+    .vp-alert-title,
+    .admonition-title {
+      margin: 0 0 4px;
       font-weight: 700;
       color: var(--text-1);
       font-size: 14px;
     }
   }
 
-  .vp-alert.note {
+  .vp-alert.note,
+  .admonition.note {
     border-left-color: #3b82f6;
   }
-  .vp-alert.tip {
+  .vp-alert.tip,
+  .admonition.tip {
     border-left-color: var(--green);
   }
-  .vp-alert.important {
+  .vp-alert.important,
+  .admonition.important {
     border-left-color: var(--purple);
   }
-  .vp-alert.warning {
+  .vp-alert.warning,
+  .admonition.warning {
     border-left-color: var(--yellow);
   }
-  .vp-alert.danger {
+  .vp-alert.danger,
+  .admonition.danger {
+    border-left-color: var(--red);
+  }
+  .admonition.code-group {
+    border-left-color: var(--text-3);
+  }
+}
+
+/* ---- 新管线：md-editor-v3 内置主题（vuepress/github）之上的对齐与适配 ---- */
+
+.article-body .dv-preview {
+  padding: 0;
+  background: transparent;
+
+  /* 行高亮条纹色（data-hl 渐变用） */
+  --vp-hl: rgba(52, 81, 178, 0.1);
+
+  .md-editor-preview-wrapper {
+    padding: 0;
+  }
+
+  @include dv-typography;
+
+  /* md-editor 内置 admonition（!!! …）配色对齐 DocVault 调色板 */
+  .md-editor-admonition {
+    border-left: 4px solid var(--brand);
+    border-radius: 8px;
+    background: var(--bg-soft);
+    color: var(--text-2);
+    font-size: 14.5px;
+  }
+
+  .md-editor-admonition-title {
+    color: var(--text-1);
+    font-size: 14px;
+  }
+
+  .md-editor-admonition-note,
+  .md-editor-admonition-info {
+    border-left-color: #3b82f6;
+  }
+  .md-editor-admonition-tip {
+    border-left-color: var(--green);
+  }
+  .md-editor-admonition-important {
+    border-left-color: var(--purple);
+  }
+  .md-editor-admonition-warning {
+    border-left-color: var(--yellow);
+  }
+  .md-editor-admonition-danger {
     border-left-color: var(--red);
   }
 
-  del {
-    color: #999;
+  /* code-group：VitePress 式标签页（ArticleBody 归组原生单标签盒） */
+  .md-editor-admonition-code-group {
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--divider);
+    border-left: 4px solid var(--text-3);
+    border-radius: 8px;
+    overflow: hidden;
+
+    /* 原生单标签条隐藏（保留 summary 里的语言标签与复制按钮） */
+    .md-editor-codetab-label {
+      display: none !important;
+    }
+
+    .md-editor-code[hidden] {
+      display: none !important;
+    }
+
+    .cg-bar {
+      display: flex;
+      gap: 2px;
+      padding: 0 10px;
+      border-bottom: 1px solid var(--divider);
+      background: var(--bg-soft);
+    }
+
+    .cg-tab {
+      appearance: none;
+      border: 0;
+      background: none;
+      padding: 8px 10px 6px;
+      font-size: 12.5px;
+      color: var(--text-3);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+
+    .cg-tab.on {
+      color: var(--brand);
+      border-bottom-color: var(--brand);
+    }
+
+    .cg-tab:hover {
+      color: var(--text-1);
+    }
+
+    > .md-editor-code {
+      margin: 10px;
+    }
   }
+}
+
+html.dark .article-body .dv-preview {
+  --vp-hl: rgba(148, 163, 255, 0.14);
 }

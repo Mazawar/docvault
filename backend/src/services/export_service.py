@@ -151,7 +151,7 @@ def export_zip(logcb=print):
     stamp = time.strftime('%Y%m%d')
     out = config.DIST / f'DocVault-offline-{stamp}.zip'
     tmp_zip = config.DIST / f'.{out.name}.tmp'
-    with zipfile.ZipFile(tmp_zip, 'w', zipfile.ZIP_STORED) as z:
+    with zipfile.ZipFile(tmp_zip, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         # 注意 arcname：站点目录在包内必须叫 site/（tmp 的实际名字是 site.tmp）
         for root, arc_root in ((tmp, 'site'), (config.PDF_DIR, 'pdf')):
             if not root.exists():
@@ -170,9 +170,10 @@ def export_zip(logcb=print):
                 os.replace(tmp_zip, out)
                 break
             time.sleep(2)
-    # 离线静态站包永远只保留最新一个
-    zips = sorted(config.DIST.glob('DocVault-offline-*.zip'))
-    for old in zips[:-1]:
+    # 离线静态站包永远只保留本次生成的这个
+    for old in config.DIST.glob('DocVault-offline-*.zip'):
+        if old == out:
+            continue
         try:
             old.unlink()
         except OSError:

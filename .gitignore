@@ -20,3 +20,6 @@ DocVault.exe
 
 # 安全扫描工具本地状态
 .mimosa/
+
+# TS 增量构建缓存
+frontend/*.tsbuildinfo

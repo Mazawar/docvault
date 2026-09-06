@@ -1,16 +1,30 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, inject, nextTick, onMounted, ref } from 'vue'
+import type { Ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { isStatic, readUrl, type IndexPayload } from '@/api/http'
 import { getIndex } from '@/api/reading'
 import { useReadState } from '@/composables/useReadState'
+import { takeShelfScroll } from '@/router'
+import ShelfCard from '@/components/ShelfCard.vue'
+import type { ProjectBrief } from '@/api/types'
 
+const router = useRouter()
 const data = ref<IndexPayload | null>(null)
 const loading = ref(true)
 const { recent, clearAll } = useReadState()
+const shelfQ = ref('')
+const scroller = inject<Ref<HTMLElement | null>>('pageScroller')
 
 onMounted(async () => {
   try {
     data.value = await getIndex()
+    // 从项目页返回书架：等列表渲染完再恢复离开时的位置，避免被短页面截断
+    const y = takeShelfScroll()
+    if (y > 0) {
+      await nextTick()
+      if (scroller?.value) scroller.value.scrollTop = y
+    }
   } finally {
     loading.value = false
   }
@@ -22,9 +36,32 @@ function fmtTs(ts: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
-function fmtDay(s: string): string {
-  return s && s !== '-' ? s.split(' ')[0] : ''
+function matchProject(p: ProjectBrief, t: string): boolean {
+  return (
+    p.name.toLowerCase().includes(t) ||
+    p.books.some(b => b.title.toLowerCase().includes(t) || b.id.toLowerCase().includes(t)) ||
+    p.files.some(f => f.toLowerCase().includes(t))
+  )
 }
+
+const q = computed(() => shelfQ.value.trim().toLowerCase())
+const filtered = computed(() => {
+  const list = data.value?.projects ?? []
+  const t = q.value
+  return t ? list.filter(p => matchProject(p, t)) : list
+})
+const totalBooks = computed(() => (data.value?.projects ?? []).reduce((s, p) => s + p.books.length, 0))
+
+/** 「更多书籍」卡的预览行：全站书单前 3 本 */
+const peek = computed(() => {
+  const out: { title: string; n: number; href: string }[] = []
+  for (const p of data.value?.projects ?? []) {
+    for (const b of p.books) {
+      out.push({ title: b.title, n: b.n, href: readUrl(p.id, b.id, '') })
+    }
+  }
+  return out.slice(0, 3)
+})
 </script>
 
 <template>
@@ -62,9 +99,17 @@ function fmtDay(s: string): string {
       </div>
     </section>
 
-    <!-- 书架 -->
+    <!-- 书架：完整项目列表 + 搜索，末尾「查看更多」进全部书籍瀑布流 -->
     <section id="shelf" class="pb-10 pt-10">
-      <h2 class="mb-5 text-[15px] font-semibold">书架</h2>
+      <div class="mb-5 flex items-center justify-between gap-4">
+        <h2 class="text-[15px] font-semibold">书架</h2>
+        <input
+          v-model="shelfQ"
+          class="shelf-filter"
+          type="search"
+          placeholder="搜索项目或书名…"
+        />
+      </div>
       <div v-if="loading" class="text-sm text-[var(--text-3)]">加载中…</div>
       <div v-else-if="!data?.projects.length" class="rounded-xl border border-dashed border-[var(--divider)] p-8 text-center">
         <div class="text-sm text-[var(--text-3)]">
@@ -75,30 +120,26 @@ function fmtDay(s: string): string {
           <a class="btn-ghost" href="#/notes">先写点笔记</a>
         </div>
       </div>
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        <div v-for="p in data?.projects" :key="p.id" class="shelf-card">
+      <div v-else-if="!filtered.length" class="rounded-xl border border-dashed border-[var(--divider)] p-8 text-center text-sm text-[var(--text-3)]">
+        没有匹配的项目
+      </div>
+      <div v-else class="falls">
+        <ShelfCard v-for="p in filtered" :key="p.id" :p="p" :q="shelfQ" />
+        <div v-if="!q" class="more-card" @click="router.push('/shelf')">
           <div class="flex items-baseline justify-between gap-2">
-            <h3 class="m-0 text-[15px] font-semibold leading-snug">{{ p.name }}</h3>
-            <span class="shrink-0 text-[11px] text-[var(--text-3)]">{{ p.type === 'notebook' ? '笔记本' : p.type === 'upload' ? '上传' : 'GitHub' }}</span>
+            <h3 class="m-0 text-[15px] font-semibold leading-snug">更多书籍</h3>
+            <span class="shrink-0 text-[11px] text-[var(--text-3)] tabular-nums">{{ totalBooks }} 本</span>
           </div>
-          <div class="mt-0.5 mb-2.5 text-xs text-[var(--text-3)]">
-            同步于 {{ fmtDay(p.updated) || '从未' }}
-          </div>
-          <ul class="m-0 list-none border-t border-[var(--divider)] p-0">
-            <li v-for="b in p.books" :key="b.id">
-              <a class="book-row" :href="readUrl(p.id, b.id, '')">
+          <div class="mt-0.5 mb-2.5 text-xs text-[var(--text-3)]">全部书籍瀑布流</div>
+          <ul class="preview-list m-0 list-none border-t border-[var(--divider)] p-0">
+            <li v-for="b in peek" :key="b.href">
+              <a class="book-row" :href="b.href" @click.stop>
                 <span class="truncate">{{ b.title }}</span>
                 <span class="cnt">{{ b.n }}</span>
               </a>
             </li>
-            <li v-for="f in isStatic() ? [] : p.files" :key="f">
-              <a class="book-row" :href="`files/${p.id}/${f}`" target="_blank">
-                <span class="truncate">{{ f }}</span>
-                <span class="cnt">附件</span>
-              </a>
-            </li>
-            <li v-if="!p.books.length" class="px-0.5 py-2 text-xs text-[var(--text-3)]">尚未同步</li>
           </ul>
+          <div class="more-hint">查看全部 →</div>
         </div>
       </div>
     </section>
@@ -163,17 +204,52 @@ function fmtDay(s: string): string {
   border-color: var(--text-3);
   color: var(--text-1);
 }
-.shelf-card {
+.shelf-filter {
+  width: 220px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text-1);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.shelf-filter:focus {
+  border-color: var(--brand);
+}
+/* 书架瀑布流：多列布局，卡片按列自然下落（与 /shelf 一致） */
+.falls {
+  columns: 1;
+  column-gap: 12px;
+}
+@media (min-width: 768px) {
+  .falls {
+    columns: 2;
+  }
+}
+@media (min-width: 1280px) {
+  .falls {
+    columns: 3;
+  }
+}
+.falls > :deep(.shelf-card) {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+/* 「更多书籍」卡与项目卡同款质感 */
+.more-card {
   border: 1px solid var(--divider);
   border-radius: 10px;
   padding: 14px 16px;
   background: var(--bg);
   transition: border-color 0.15s;
+  cursor: pointer;
 }
-.shelf-card:hover {
-  border-color: var(--text-3);
+.more-card:hover {
+  border-color: var(--brand);
 }
-.book-row {
+.more-card .book-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -183,16 +259,27 @@ function fmtDay(s: string): string {
   color: var(--text-2);
   border-bottom: 1px solid var(--divider);
 }
-ul > li:last-child .book-row {
+.more-card ul > li:last-child .book-row {
   border-bottom: none;
 }
-.book-row:hover {
+.more-card .book-row:hover {
   color: var(--brand);
 }
-.book-row .cnt {
+.more-card .book-row .cnt {
   font-size: 11.5px;
   color: var(--text-3);
   font-variant-numeric: tabular-nums;
+}
+.more-card .more-hint {
+  margin-top: 2px;
+  padding: 7px 2px 0;
+  border-top: 1px dashed var(--divider);
+  font-size: 11.5px;
+  color: var(--text-3);
+  transition: color 0.15s;
+}
+.more-card:hover .more-hint {
+  color: var(--brand);
 }
 .recent-row {
   display: flex;

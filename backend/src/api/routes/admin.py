@@ -1,8 +1,10 @@
 """管理接口（控制器层）：项目 CRUD / 同步 / 上传 / 笔记 / PDF / 离线包 / 任务。"""
+import os
 import re
+import tempfile
 import time
 from pathlib import Path
-from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Body, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from ...core import config
@@ -169,11 +171,29 @@ def purge_orphan_assets():
     return {'ok': True}
 
 
+class PackSpec(BaseModel):
+    pid: str = ''
+
+
 @router.post('/export-pack')
-def export_pack_route():
-    job_service.start_job('生成资源包',
-                          lambda logcb: pack_service.export_pack(False, logcb))
+def export_pack_route(spec: PackSpec = Body(default=PackSpec())):
+    pid = spec.pid.strip() or None
+    job_service.start_job('生成资源包' if not pid else f'导出资源包 · {pid}',
+                          lambda logcb: pack_service.export_pack(False, logcb, pid))
     return {'ok': True}
+
+
+@router.get('/export-project-pack')
+def export_project_pack(pid: str = Query(...)):
+    """单项目资源包：同步生成、浏览器直接下载，不进导出中心。"""
+    from starlette.background import BackgroundTask
+    if not repository.get_project(pid):
+        raise HTTPException(status_code=404, detail='项目不存在')
+    tmp = config.DIST / f'.export-{pid}-{int(time.time())}.zip'
+    pack_service.export_pack(False, logcb=lambda m: None, pid=pid, out=tmp)
+    stamp = time.strftime('%Y%m%d')
+    return FileResponse(tmp, filename=f'DocVault-pack-{stamp}-{pid}.zip',
+                        background=BackgroundTask(os.remove, tmp))
 
 
 @router.post('/pdf-note')
@@ -198,8 +218,8 @@ def download_pack():
 @router.post('/import-pack')
 async def import_pack(file: UploadFile = File(...)):
     config.DIST.mkdir(parents=True, exist_ok=True)
-    tmp = config.DIST / f'.import-{int(time.time())}.zip'
-    with open(tmp, 'wb') as w:
+    fd, tmp = tempfile.mkstemp(suffix='.zip', prefix='.import-', dir=config.DIST)
+    with os.fdopen(fd, 'wb') as w:
         w.write(await file.read())
     job_service.start_job('导入资源包',
                           lambda logcb: pack_service.import_pack(tmp, logcb))

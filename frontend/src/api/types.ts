@@ -9,7 +9,7 @@ export interface BookBrief {
 export interface ProjectBrief {
   id: string
   name: string
-  type: 'github' | 'upload'
+  type: 'github' | 'upload' | 'notebook'
   updated: string
   books: BookBrief[]
   files: string[]
@@ -40,7 +40,10 @@ export interface ArticlePayload {
   bid: string
   slug: string
   title: string
+  /** Python-Markdown 预渲染 HTML（离线旧包 / 回退用） */
   html: string
+  /** 文本级清洗后的 Markdown，前端 markdown-it 渲染（新管线） */
+  md?: string
   prev: ArticleItem | null
   next: ArticleItem | null
   updated: string
@@ -61,7 +64,7 @@ export interface SearchHit {
 export interface ProjectFull {
   id: string
   name: string
-  type: 'github' | 'upload'
+  type: 'github' | 'upload' | 'notebook'
   repo: string
   root: string
   group_titles?: Record<string, Record<string, string>>
@@ -73,7 +76,7 @@ export interface ProjectFull {
 export interface ProjectRow {
   id: string
   name: string
-  type: 'github' | 'upload'
+  type: 'github' | 'upload' | 'notebook'
   repo: string
   root: string
   updated: string

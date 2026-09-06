@@ -105,9 +105,9 @@ def discover_books(p):
 
 
 def _scan_dir(bdir: Path):
-    """扫描目录下全部 md → [(slug, title, body)]，按 目录编号+H1编号 排序。"""
+    """扫描目录下全部 md/mdx → [(slug, title, body)]，按 目录编号+H1编号 排序。"""
     found = []
-    for f in bdir.rglob('*.md'):
+    for f in sorted([*bdir.rglob('*.md'), *bdir.rglob('*.mdx')]):
         rel = f.relative_to(bdir)
         if any(x.startswith('.') for x in rel.parts):
             continue

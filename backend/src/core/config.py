@@ -13,7 +13,9 @@ def _base_dir() -> Path:
 BASE = _base_dir()
 # DV_DATA 可把数据目录指到别处（沙箱/便携盘场景）
 DATA = Path(os.environ.get('DV_DATA', str(BASE / 'data')))
-REPOS = DATA / 'repos'
+# DV_REPOS 可把仓库缓存单独迁出（repos 是第三方源码缓存，迁出源码树可避免被
+# 代码扫描/门禁工具当作项目代码，且不随项目备份膨胀）
+REPOS = Path(os.environ.get('DV_REPOS', str(DATA / 'repos')))
 ASSETS = DATA / 'assets'
 UPLOADS = DATA / 'uploads'
 DIST = DATA / 'dist'

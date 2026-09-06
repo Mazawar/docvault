@@ -28,7 +28,7 @@ function onTheme() {
     class="fixed inset-x-0 top-0 z-80 flex h-[var(--nav-h)] items-center border-b border-[var(--divider)] bg-[var(--bg)]/85 pl-4 pr-4 backdrop-blur-md md:pl-6"
   >
     <a class="mr-5 flex items-center gap-2 whitespace-nowrap" href="#/">
-      <span class="logo-mark"></span>
+      <img src="/favicon.svg" alt="" class="h-[18px] w-[18px] rounded-[4px]" />
       <span class="text-[15px] font-bold tracking-tight text-[var(--text-1)]">DocVault</span>
     </a>
 
@@ -54,13 +54,6 @@ function onTheme() {
 </template>
 
 <style scoped>
-.logo-mark {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  background: var(--brand);
-  display: inline-block;
-}
 .navlinks {
   display: flex;
   align-items: stretch;

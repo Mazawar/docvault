@@ -53,6 +53,7 @@ def _tasklist(text):
 
 def md_to_html(text):
     text, _ = strip_fm(text)
+    text = _vitepress(text)
     text = _tasklist(text)
     text = rewrite_refdefs(text)
     text = DEL.sub(r'<del>\1</del>', text)
@@ -60,8 +61,141 @@ def md_to_html(text):
     return md.convert(text)
 
 
+_VP_C = re.compile(r'^ {0,3}:::\s*([A-Za-z-]+)?\s*(.*)$')
+_VP_KIND = {'tip': 'tip', 'info': 'note', 'note': 'note', 'important': 'important',
+            'warning': 'warning', 'danger': 'danger', 'details': 'note',
+            'code-group': 'code-group'}
+_FENCES = re.compile(r'(```.*?```|~~~.*?~~~)', re.S)
+
+
+def _vitepress(text):
+    """VitePress 方言 → 通用 Markdown：标题剥 {#锚点}；::: 容器 → admonition；
+    标题/围栏前补空行（CommonMark 允许打断段落，Python-Markdown 不允许）。
+
+    代码围栏内的 ::: 与 {#} 原样保留（示例代码不受影响）。"""
+    parts = _FENCES.split(text)
+    for i in range(0, len(parts), 2):
+        parts[i] = re.sub(r'(?m)^(#{1,6} .+?)\s*\{#[^}]*\}\s*$', r'\1', parts[i])
+        # VitePress 在 markdown 里裸写 <div> 包内容：声明让 md_in_html 解析其内部 Markdown
+        parts[i] = re.sub(
+            r'(?m)^(\s*<(?:div|section|details|blockquote)(?:\s[^>]*)?)>\s*$',
+            r'\1 markdown="1">', parts[i])
+    text = ''.join(parts)
+
+    lines = []
+    prev_blank = True
+    for line in text.split('\n'):
+        if not prev_blank and re.match(r'^(#{1,6} |```|~~~)', line):
+            lines.append('')  # 块级元素前补空行，否则被并入上一段落
+        lines.append(line)
+        prev_blank = not line.strip()
+    text = '\n'.join(lines)
+
+    out, buf, in_c = [], None, False
+    for line in text.split('\n'):
+        if not in_c:
+            m = _VP_C.match(line)
+            if m and (m.group(1) or '').lower() in _VP_KIND:
+                kind = _VP_KIND[m.group(1).lower()]
+                title = m.group(2).strip().replace('"', "'")
+                buf = [f'!!! {kind} "{title}"' if title else f'!!! {kind} ""']
+                in_c = True
+                continue
+            out.append(line)
+            continue
+        if re.match(r'^ {0,3}:::\s*$', line):
+            out.extend(buf)
+            out.append('')
+            buf, in_c = None, False
+            continue
+        buf.append(('    ' + line) if line.strip() else '')
+    if buf:
+        out.extend(buf)  # 未闭合容器兜底，避免吞掉后文
+    return '\n'.join(out)
+
+
 ALERT = re.compile(r'<blockquote>\s*<p>\[!(NOTE|TIP|IMPORTANT|WARNING|DANGER)\]\s*(.*?)</blockquote>', re.S)
 ALERT_TITLE = {'NOTE': '笔记', 'TIP': '提示', 'IMPORTANT': '重要', 'WARNING': '警告', 'DANGER': '危险'}
+
+
+def outside_fences(text, fn):
+    """仅对代码围栏外的文本应用 fn（改写不能污染代码示例）。"""
+    parts = _FENCES.split(text)
+    for i in range(0, len(parts), 2):
+        parts[i] = fn(parts[i])
+    return ''.join(parts)
+
+
+def strip_heading_meta(text):
+    """剥标题行 VitePress 标记：{#锚点} 后缀、尾部 \\* / \\*\\*（API 专属记号）。围栏内不动。"""
+    parts = _FENCES.split(text)
+    for i in range(0, len(parts), 2):
+        parts[i] = re.sub(r'(?m)^(#{1,6} .+?)\s*\{#[^}]*\}\s*$', r'\1', parts[i])
+        parts[i] = re.sub(r'(?m)^(#{1,6} .*?\S)[ \t]+(?:\\\*|\*){1,2}[ \t]*$', r'\1', parts[i])
+    return ''.join(parts)
+
+
+def vp_containers(text):
+    """VitePress ::: 容器 → md-editor-v3 内置 admonition 的 !!! 语法（内容不缩进）。
+    开/闭标记允许 ≤3 空格缩进（CommonMark 块约定，源站允许闭合标记缩进）。
+    围栏内不转换；未闭合容器补 !!! 兜底。"""
+    out, in_c, fence = [], False, ''
+    for line in text.split('\n'):
+        s = line.lstrip(' ')
+        if fence:
+            if s.startswith(fence) and not s[len(fence):].strip():
+                fence = ''
+            out.append(line)
+            continue
+        m = re.match(r'^ {0,3}(```|~~~)', line)
+        if m:
+            fence = m.group(1)
+            out.append(line)
+            continue
+        if not in_c:
+            m2 = _VP_C.match(line)
+            if m2 and (m2.group(1) or '').lower() in _VP_KIND:
+                kind = _VP_KIND[m2.group(1).lower()]
+                title = m2.group(2).strip()
+                out.append(('!!! ' + kind + (' ' + title if title else '')).rstrip())
+                in_c = True
+                continue
+            out.append(line)
+            continue
+        if re.match(r'^ {0,3}:::\s*$', line):
+            out.append('!!!')
+            in_c = False
+            continue
+        out.append(line)
+    if in_c:
+        out.append('!!!')  # 未闭合容器兜底
+    return '\n'.join(out)
+
+
+def localize_md_images(text, cur_dir, assets_dir, root=None):
+    """Markdown 图片语法里的仓库内相对路径（及 / 开头的 public 目录路径）→ 缓存资源地址。"""
+
+    def rw(m):
+        alt, url = m.group(1), m.group(2)
+        if url.startswith(('http://', 'https://', '/a/', 'data:')):
+            return m.group(0)
+        rel = urllib.parse.unquote(url.split('#')[0])
+        if url.startswith('/'):
+            base = Path(root) if root else Path(cur_dir)
+            cands = [base / 'public' / rel.lstrip('/'), base / rel.lstrip('/')]
+        else:
+            cands = [Path(os.path.normpath(Path(cur_dir) / rel))]
+        for p in cands:
+            if p.is_file():
+                data = p.read_bytes()
+                name = hashlib.sha256(data).hexdigest()[:32] + p.suffix.lower()
+                dst = Path(assets_dir) / name
+                if not dst.exists():
+                    dst.write_bytes(data)
+                return f'![{alt}](/a/{name})'
+        return m.group(0)
+
+    return IMG_INLINE.sub(rw, text)
 
 
 def alerts(html_text):
@@ -161,10 +295,10 @@ def h1_of(p):
     text, fm = strip_fm(p.read_text(encoding='utf-8', errors='ignore')[:4000])
     t = fm_title(fm)
     if t:
-        return t
+        return re.sub(r'\s*\{#[^}]*\}\s*$', '', t)
     for line in text.splitlines():
         if line.startswith('# '):
-            return line[2:].strip()
+            return re.sub(r'\s*\{#[^}]*\}\s*$', '', line[2:].strip())
     return p.stem
 
 

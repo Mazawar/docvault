@@ -14,7 +14,8 @@ export const adminApi = {
 
   sync: (pid = '') => postJSON<{ ok: boolean }>('api/admin/sync', { pid }),
   exportZip: () => postJSON<{ ok: boolean }>('api/admin/export'),
-  exportPack: () => postJSON<{ ok: boolean }>('api/admin/export-pack'),
+  exportPack: (pid = '') => postJSON<{ ok: boolean }>('api/admin/export-pack', { pid }),
+  projectPackUrl: (pid: string) => `api/admin/export-project-pack?pid=${encodeURIComponent(pid)}`,
   importPack: (file: File) => {
     const fd = new FormData()
     fd.append('file', file)
