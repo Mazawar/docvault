@@ -79,6 +79,22 @@ function downloadPack(pid: string) {
 }
 /* ---------- 存储与清理 ---------- */
 const st = ref<Awaited<ReturnType<typeof adminApi.storage>> | null>(null)
+const distDesc = computed(() => {
+  if (!st.value) return ''
+  const d = st.value.dist
+  const parts: string[] = []
+  if (d.pack) parts.push(`资源包 ${d.pack.mb}MB`)
+  if (d.offline) parts.push(`离线包 ${d.offline.mb}MB`)
+  if (d.site_mb) parts.push(`静态站 ${d.site_mb}MB`)
+  if (d.pdf_mb) parts.push(`PDF ${d.pdf_mb}MB`)
+  if (d.temp.mb) parts.push(`临时 ${d.temp.mb}MB`)
+  return parts.join(' · ') || '暂无产物'
+})
+const totalMb = computed(() => {
+  if (!st.value) return 0
+  const s = st.value
+  return Math.round(s.assets.mb + s.repos_mb + s.db_mb + s.notes_mb + s.uploads_mb + s.dist.mb)
+})
 async function loadStorage() {
   if (staticMode.value) return
   st.value = await adminApi.storage().catch(() => null)
@@ -92,6 +108,12 @@ const purgeRepos = (pid: string, name: string) =>
 const purgeOrphan = () =>
   act('purge-orphan', () => adminApi.purgeOrphanAssets(), '已提交清理，进度见任务队列')
     .then(loadStorage)
+const purgeDist = () =>
+  ElMessageBox.confirm(
+    '删除全部导出产物：资源包、离线站包、静态站、PDF、下载临时文件。这些都是可随时重新生成的产物，文章数据（数据库/图床/仓库）不动。',
+    '清理导出产物', { confirmButtonText: '清理', type: 'warning' }
+  ).then(() => act('purge-dist', () => adminApi.purgeDist(), '已提交清理，进度见任务队列'))
+    .then(loadStorage).catch(() => {})
 const syncAll = () => act('sync-all', () => adminApi.sync(''), '已提交全量同步')
 const doExport = () => act('export', () => adminApi.exportZip(), '已提交静态站生成')
 const doExportPack = () => act('export-pack', () => adminApi.exportPack(), '已提交资源包生成')
@@ -387,22 +409,41 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
 
     <!-- 维护：存储与队列并排 -->
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 mb-4">
-      <div class="card">
+      <div class="card lg:col-span-2">
         <div class="mb-3 flex items-center justify-between gap-2">
           <h2 class="!m-0 text-[14px] font-semibold text-[var(--text-1)]">存储与清理</h2>
-          <el-button size="small" @click="purgeOrphan" :loading="busy['purge-orphan']">清理无效图片</el-button>
+          <span v-if="st" class="text-xs text-[var(--text-3)]">合计约 {{ totalMb }} MB</span>
         </div>
         <template v-if="st">
-          <div class="strow"><span>图床</span><b>{{ st.assets.mb }}MB · {{ st.assets.files }} 个</b></div>
-          <div class="strow"><span>仓库缓存</span><b>{{ st.repos_mb }}MB</b></div>
-          <div class="strow"><span>数据库</span><b>{{ st.db_mb }}MB</b></div>
-          <div class="strow"><span>笔记</span><b>{{ st.notes_mb }}MB</b></div>
-          <div class="strow"><span>导出产物</span><b>{{ st.dist_mb }}MB</b></div>
-          <div class="mut mt-2">删除未被引用的图床文件；仓库缓存请在项目卡「···」清理</div>
+          <div class="strow">
+            <span>图片缓存<i>文章/笔记引用的图床文件</i></span>
+            <b class="tabular-nums">{{ st.assets.mb }}MB<i>{{ st.assets.files }} 个</i></b>
+            <el-button size="small" :loading="busy['purge-orphan']" @click="purgeOrphan">清理未引用</el-button>
+          </div>
+          <div class="strow">
+            <span>导出产物<i>{{ distDesc }}</i></span>
+            <b class="tabular-nums">{{ st.dist.mb }}MB<i v-if="st.dist.temp.mb">临时 {{ st.dist.temp.mb }}MB</i></b>
+            <el-button size="small" :loading="busy['purge-dist'] || jobRunning('清理导出产物')" @click="purgeDist">清理全部</el-button>
+          </div>
+          <div class="strow">
+            <span>仓库缓存<i>第三方源码，同步时重新克隆</i></span>
+            <b class="tabular-nums">{{ st.repos_mb }}MB</b>
+            <span class="text-xs text-[var(--text-3)]">在上方项目行「⋯」清理</span>
+          </div>
+          <div class="strow">
+            <span>文章数据库<i>核心数据，不可清理</i></span>
+            <b class="tabular-nums">{{ st.db_mb }}MB</b>
+            <span />
+          </div>
+          <div class="strow">
+            <span>笔记与附件<i>用户数据</i></span>
+            <b class="tabular-nums">{{ st.notes_mb + st.uploads_mb }}MB</b>
+            <span />
+          </div>
         </template>
         <div v-else class="mut text-[13px]">统计加载中…</div>
       </div>
-      <div class="card lg:col-span-2">
+      <div class="card">
         <h2>任务队列</h2>
         <pre class="jobpre">{{ (ov?.jobs || []).length ? '' : '(暂无任务)' }}<template v-for="j in ov?.jobs" :key="j.id"><span>{{ j.status === 'done' ? '✓' : j.status === 'error' ? '✗' : '…' }} {{ j.name }}  {{ j.created }} → {{ j.finished || '进行中' }}</span>
 <span v-for="(l, i) in j.log" :key="i" class="mut">  {{ l }}</span>
@@ -629,10 +670,11 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
   font-size: 12px;
 }
 .strow {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 5.5px 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 110px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
   font-size: 13px;
   color: var(--text-3);
 }
@@ -643,6 +685,21 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
   color: var(--text-1);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.strow i {
+  display: block;
+  margin-top: 1px;
+  font-size: 11.5px;
+  font-style: normal;
+  color: var(--text-3);
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.strow .el-button {
+  justify-self: end;
 }
 .jobpre {
   background: var(--bg-alt);

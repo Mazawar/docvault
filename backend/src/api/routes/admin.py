@@ -89,16 +89,46 @@ def download():
 
 
 def _dir_size(p) -> int:
-    if not Path(p).exists():
+    p = Path(p)
+    if p.is_file():
+        return p.stat().st_size
+    if not p.exists():
         return 0
-    return sum(f.stat().st_size for f in Path(p).rglob('*') if f.is_file())
+    return sum(f.stat().st_size for f in p.rglob('*') if f.is_file())
+
+
+def _latest_dist(pattern):
+    fs = sorted(config.DIST.glob(pattern))
+    if not fs:
+        return None
+    f = fs[-1]
+    return {'name': f.name, 'mb': round(f.stat().st_size / 1048576, 1)}
+
+
+def _sweep_dist_temps(max_age_min=60):
+    """清扫下载/导出临时文件（超过 1 小时的 .export-*.zip 与 *.tmp）。
+    下载走 FileResponse 后台删除，浏览器中断/文件占用时会留残留，这里兜底自清。"""
+    cutoff = time.time() - max_age_min * 60
+    freed = 0
+    for f in config.DIST.glob('*'):
+        if f.is_file() and (f.name.startswith('.export-') or f.suffix == '.tmp') and f.stat().st_mtime < cutoff:
+            try:
+                freed += f.stat().st_size
+                f.unlink()
+            except OSError:
+                pass
+    return freed
 
 
 @router.get('/storage')
 def storage():
-    """缓存空间概览：各项目仓库占用 + 全局目录占用。"""
+    """缓存空间概览：各项目仓库占用 + 全局目录占用 + 导出产物明细。"""
     def mb(p):
         return round(_dir_size(p) / 1048576, 1)
+
+    _sweep_dist_temps()
+    temps = [f for f in config.DIST.glob('*')
+             if f.is_file() and (f.name.startswith('.export-') or f.suffix == '.tmp')]
     items = []
     for p in repository.list_projects():
         items.append({
@@ -114,7 +144,15 @@ def storage():
         'db_mb': mb(config.DB),
         'notes_mb': mb(config.DATA / 'notes'),
         'uploads_mb': mb(config.UPLOADS),
-        'dist_mb': mb(config.DIST),
+        'dist': {
+            'mb': mb(config.DIST),
+            'site_mb': mb(config.DIST / 'site'),
+            'pdf_mb': mb(config.DIST / 'pdf'),
+            'pack': _latest_dist('DocVault-pack-*.zip'),
+            'offline': _latest_dist('DocVault-offline-*.zip'),
+            'temp': {'files': len(temps),
+                     'mb': round(sum(f.stat().st_size for f in temps) / 1048576, 1)},
+        },
     }
 
 
@@ -133,6 +171,42 @@ def purge_repos(spec: SyncSpec):
         else:
             logcb('该项目没有仓库缓存')
     job_service.start_job('清理仓库缓存', work)
+    return {'ok': True}
+
+
+@router.post('/purge-dist')
+def purge_dist():
+    """清理全部导出产物：资源包/离线包/静态站/PDF/临时文件。
+    这些都能由「生成」按钮随时重新生成，正文数据（数据库/图床/仓库）不动。"""
+    def work(logcb):
+        import shutil
+        freed = 0
+
+        def rm(p, label):
+            nonlocal freed
+            if not Path(p).exists():
+                return
+            m = _dir_size(p) / 1048576 if Path(p).is_dir() else Path(p).stat().st_size / 1048576
+            shutil.rmtree(p, ignore_errors=True) if Path(p).is_dir() else Path(p).unlink(missing_ok=True)
+            freed += m * 1048576
+            logcb(f'已清理 {label} {m:.0f} MB')
+
+        for f in config.DIST.glob('DocVault-pack-*.zip'):
+            rm(f, f'资源包 {f.name}')
+        for f in config.DIST.glob('DocVault-offline-*.zip'):
+            rm(f, f'离线站包 {f.name}')
+        for f in config.DIST.glob('.export-*.zip'):
+            rm(f, f'下载临时 {f.name}')
+        rm(config.DIST / 'site', '静态站')
+        rm(config.DIST / 'site.tmp', '静态站临时目录')
+        if config.PDF_DIR.exists():
+            kept = config.PDF_DIR
+            for f in kept.rglob('*'):
+                if f.is_file():
+                    rm(f, f'PDF {f.name}')
+        _sweep_dist_temps(0)
+        logcb(f'合计释放 {freed / 1048576:.0f} MB（均为可重新生成的产物）')
+    job_service.start_job('清理导出产物', work)
     return {'ok': True}
 
 

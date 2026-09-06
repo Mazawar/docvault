@@ -25,12 +25,20 @@ export const adminApi = {
       return data
     })
   },
-  storage: () => getJSON<{    projects: { id: string; name: string; type: string; repos_mb: number; articles: number }[]
+  storage: () => getJSON<{
+    projects: { id: string; name: string; type: string; repos_mb: number; articles: number }[]
     assets: { mb: number; files: number }
-    repos_mb: number; db_mb: number; notes_mb: number; uploads_mb: number; dist_mb: number
+    repos_mb: number; db_mb: number; notes_mb: number; uploads_mb: number
+    dist: {
+      mb: number; site_mb: number; pdf_mb: number
+      pack: { name: string; mb: number } | null
+      offline: { name: string; mb: number } | null
+      temp: { files: number; mb: number }
+    }
   }>('api/admin/storage'),
   purgeRepos: (pid: string) => postJSON<{ ok: boolean }>('api/admin/purge-repos', { pid }),
   purgeOrphanAssets: () => postJSON<{ ok: boolean }>('api/admin/purge-orphan-assets'),
+  purgeDist: () => postJSON<{ ok: boolean }>('api/admin/purge-dist'),
   exportNotePdf: (folder: string, name: string) =>
     postJSON<{ ok: boolean }>('api/admin/pdf-note', { folder, name }),
 
