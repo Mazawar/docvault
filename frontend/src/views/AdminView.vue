@@ -409,7 +409,7 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
 
     <!-- 维护：存储与队列并排 -->
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 mb-4">
-      <div class="card lg:col-span-2">
+      <div class="card">
         <div class="mb-3 flex items-center justify-between gap-2">
           <h2 class="!m-0 text-[14px] font-semibold text-[var(--text-1)]">存储与清理</h2>
           <span v-if="st" class="text-xs text-[var(--text-3)]">合计约 {{ totalMb }} MB</span>
@@ -443,7 +443,7 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
         </template>
         <div v-else class="mut text-[13px]">统计加载中…</div>
       </div>
-      <div class="card">
+      <div class="card lg:col-span-2">
         <h2>任务队列</h2>
         <pre class="jobpre">{{ (ov?.jobs || []).length ? '' : '(暂无任务)' }}<template v-for="j in ov?.jobs" :key="j.id"><span>{{ j.status === 'done' ? '✓' : j.status === 'error' ? '✗' : '…' }} {{ j.name }}  {{ j.created }} → {{ j.finished || '进行中' }}</span>
 <span v-for="(l, i) in j.log" :key="i" class="mut">  {{ l }}</span>
