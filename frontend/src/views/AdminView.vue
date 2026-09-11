@@ -820,7 +820,14 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
   .pagehead h1 {
     font-size: 18px;
   }
-  /* 项目行：上下堆叠，操作按钮换到第二行右对齐 */
+  /* 项目行：上下堆叠，操作按钮换到第二行右对齐
+     （添加/查看更多这两个纯按钮保持横排居中，不受堆叠影响） */
+  .pmrow.pmrow-add,
+  .pmrow.pmrow-more {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+  }
   .pmrow {
     flex-direction: column;
     align-items: stretch;
