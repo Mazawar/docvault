@@ -812,4 +812,60 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
   opacity: 0;
   transform: translateY(-3px);
 }
+/* ---- 移动端适配 ---- */
+@media (max-width: 768px) {
+  .wrap {
+    padding: 16px 12px 64px;
+  }
+  .pagehead h1 {
+    font-size: 18px;
+  }
+  /* 项目行：上下堆叠，操作按钮换到第二行右对齐 */
+  .pmrow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 12px;
+  }
+  .pline1 {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .pline1 b {
+    font-size: 14.5px;
+  }
+  .pline2 {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .pside {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  .pside .el-button + .el-button {
+    margin-left: 0;
+  }
+  .psize {
+    flex: 1;
+    text-align: left;
+  }
+  /* 存储行：按钮独占一行 */
+  .strow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .strow .el-button {
+    grid-column: 1 / span 2;
+    grid-row: auto;
+    justify-self: end;
+    margin-top: 4px;
+  }
+  .stlabel i {
+    white-space: normal;
+  }
+}
+/* 弹窗宽度钳制（width=560 的表单在手机上不出屏） */
+:deep(.el-dialog) {
+  max-width: calc(100vw - 24px);
+}
 </style>

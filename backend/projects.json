@@ -4,6 +4,54 @@
       "id": "my-notes",
       "name": "我的笔记",
       "type": "upload"
+    },
+    {
+      "id": "javaguide",
+      "name": "JavaGuide",
+      "type": "github",
+      "repo": "Snailclimb/JavaGuide",
+      "root": "docs",
+      "groupTitles": {
+        "main": {
+          "cs-basics": "计算机基础",
+          "database": "数据库",
+          "distributed-system": "分布式",
+          "system-design": "系统设计",
+          "java": "Java 核心",
+          "high-performance": "高性能",
+          "high-availability": "高可用",
+          "ai": "AI 应用开发",
+          "ai-coding": "AI 编程",
+          "interview-preparation": "面试准备",
+          "tools": "开发工具",
+          "open-source-project": "开源项目",
+          "books": "技术书籍",
+          "roadmap": "学习路线",
+          "high-quality-technical-articles": "优质技术文章",
+          "zhuanlan": "专栏",
+          "snippets": "代码片段",
+          "about-the-author": "关于作者"
+        }
+      }
+    },
+    {
+      "id": "advanced-java",
+      "name": "advanced-java 进阶扫盲",
+      "type": "github",
+      "repo": "doocs/advanced-java",
+      "root": "."
+    },
+    {
+      "id": "doocs-jvm",
+      "name": "JVM 核心知识",
+      "type": "github",
+      "repo": "doocs/jvm",
+      "root": ".",
+      "groupTitles": {
+        "main": {
+          "docs": "JVM 核心知识"
+        }
+      }
     }
   ]
 }
