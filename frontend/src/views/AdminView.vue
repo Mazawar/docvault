@@ -6,7 +6,6 @@ import ProjectList from '../components/admin/ProjectList.vue'
 import ExportCenter from '../components/admin/ExportCenter.vue'
 import ArticleManage from '../components/admin/ArticleManage.vue'
 import StorageCleanup from '../components/admin/StorageCleanup.vue'
-import PdfExport from '../components/admin/PdfExport.vue'
 import JobQueue from '../components/admin/JobQueue.vue'
 import { useAdmin } from '../composables/useAdmin'
 
@@ -85,8 +84,6 @@ onBeforeUnmount(() => {
       <StorageCleanup />
       <JobQueue class="lg:col-span-2" />
     </div>
-
-    <PdfExport />
   </div>
 </template>
 

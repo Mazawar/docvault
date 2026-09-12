@@ -38,6 +38,17 @@ def create_app() -> FastAPI:
 
     front = config.frontend_dist()
     if front:
+        index_html = front / 'index.html'
+
+        @app.get('/', include_in_schema=False)
+        def root_html():
+            # index.html 永远不缓存：前端重建后浏览器立刻拿到新版
+            return FileResponse(index_html, headers={'Cache-Control': 'no-cache'})
+
+        @app.get('/index.html', include_in_schema=False)
+        def index_html_route():
+            return FileResponse(index_html, headers={'Cache-Control': 'no-cache'})
+
         app.mount('/', StaticFiles(directory=front, html=True), name='spa')
     else:
         @app.get('/', response_class=HTMLResponse)
