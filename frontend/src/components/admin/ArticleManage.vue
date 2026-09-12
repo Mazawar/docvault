@@ -92,6 +92,13 @@ async function amReset(r: { slug: string; title: string }) {
       <el-select v-model="amBid" placeholder="书" class="!w-52" :disabled="!amPid" @change="onAmBook">
         <el-option v-for="b in amBooks" :key="b.id" :value="b.id" :label="`${b.title} (${b.n})`" />
       </el-select>
+      <el-input
+        v-model="qFilter"
+        placeholder="搜索标题 / 路径…"
+        size="small"
+        class="!w-56"
+        clearable
+      />
       <span class="mut" v-if="amLoaded">
         共 {{ amFiltered.length }} 篇（隐藏 {{ amRows.filter(r => r.hidden).length }}
         · 本地修改 {{ amRows.filter(r => r.titleOverride || r.bodyOverride).length }}）
