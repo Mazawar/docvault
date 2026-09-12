@@ -32,11 +32,6 @@ class SyncSpec(BaseModel):
     pid: str = ''
 
 
-class PdfSpec(BaseModel):
-    pid: str
-    bid: str
-
-
 class NotePdfSpec(BaseModel):
     folder: str = '我的笔记'
     name: str = ''
@@ -66,12 +61,6 @@ def sync(spec: SyncSpec = Body(default=SyncSpec())):
                           lambda logcb: sync_service.sync_all(spec.pid or None, logcb))
     return {'ok': True}
 
-
-@router.post('/pdf')
-def pdf(spec: PdfSpec):
-    job_service.start_job(f'pdf-{spec.pid}-{spec.bid}',
-                          lambda logcb: pdf_service.export_book(spec.pid, spec.bid, logcb))
-    return {'ok': True}
 
 
 @router.post('/export')
