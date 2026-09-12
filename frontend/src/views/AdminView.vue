@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Upload } from '@element-plus/icons-vue'
+import { Plus, Refresh, Delete, Edit, Download, Upload, MoreFilled, Brush } from '@element-plus/icons-vue'
+import { adminApi } from '@/api/admin'
+import { notesIndex } from '@/api/notes'
+import { modeRef } from '@/api/http'
+import type { Overview, ProjectFull } from '@/api/types'
 import ProjectList from '../components/admin/ProjectList.vue'
 import ExportCenter from '../components/admin/ExportCenter.vue'
 import ArticleManage from '../components/admin/ArticleManage.vue'
@@ -9,6 +14,7 @@ import StorageCleanup from '../components/admin/StorageCleanup.vue'
 import JobQueue from '../components/admin/JobQueue.vue'
 import { useAdmin } from '../composables/useAdmin'
 
+const router = useRouter()
 const { ov, stats, staticMode, busy, jobRunning, refresh, startPolling, stopPolling } = useAdmin()
 
 const packInput = ref<HTMLInputElement | null>(null)

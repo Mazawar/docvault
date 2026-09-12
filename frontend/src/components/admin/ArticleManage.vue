@@ -13,8 +13,18 @@ const amRows = ref<{
   titleOverride: boolean; bodyOverride: boolean; sort: number | null
 }[]>([])
 const amLoaded = ref(false)
+const qFilter = ref('')
 const amBooks = computed(() => ov.value?.projects.find((p) => p.id === amPid.value)?.books || [])
-const amVisible = computed(() => amRows.value.slice(0, 400))
+const amPage = ref(1)
+const AM_PAGE_SIZE = 50
+const amFiltered = computed(() => {
+  const q = qFilter.value.trim().toLowerCase()
+  if (!q) return amRows.value
+  return amRows.value.filter((r) => (r.title + r.slug).toLowerCase().includes(q))
+})
+const amVisible = computed(() => amFiltered.value.slice((amPage.value - 1) * AM_PAGE_SIZE, amPage.value * AM_PAGE_SIZE))
+watch(qFilter, () => (amPage.value = 1))
+watch([amPid, amBid], () => (amPage.value = 1))
 
 async function loadArticles() {
   if (!amPid.value || !amBid.value) { amRows.value = []; amLoaded.value = false; return }
@@ -83,7 +93,7 @@ async function amReset(r: { slug: string; title: string }) {
         <el-option v-for="b in amBooks" :key="b.id" :value="b.id" :label="`${b.title} (${b.n})`" />
       </el-select>
       <span class="mut" v-if="amLoaded">
-        共 {{ amRows.length }} 篇（隐藏 {{ amRows.filter(r => r.hidden).length }}
+        共 {{ amFiltered.length }} 篇（隐藏 {{ amRows.filter(r => r.hidden).length }}
         · 本地修改 {{ amRows.filter(r => r.titleOverride || r.bodyOverride).length }}）
       </span>
     </div>
@@ -115,8 +125,14 @@ async function amReset(r: { slug: string; title: string }) {
           <el-button size="small" text @click="amReset(r)">恢复默认</el-button>
         </div>
       </div>
-      <div v-if="amRows.length > 400" class="mut text-center text-xs pt-3">
-        仅显示前 400 篇，请用全局搜索（Ctrl+K）定位其余文章
+      <div class="pt-3">
+        <el-pagination
+          v-model:current-page="amPage"
+          :page-size="50"
+          :total="amFiltered.length"
+          layout="prev, pager, next, total"
+          size="small"
+        />
       </div>
     </template>
     <div v-else class="mut text-[13px]">选择项目和书后加载文章列表</div>
