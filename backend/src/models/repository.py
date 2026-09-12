@@ -57,15 +57,20 @@ def touch_project(pid, updated=None):
 
 def list_books(pid):
     with database.connect() as c:
-        return [dict(r) for r in c.execute("SELECT b.*, (SELECT COUNT(*) FROM articles a WHERE a.pid=b.pid AND a.bid=b.id) AS n FROM books b WHERE b.pid=? ORDER BY b.rowid", (pid,)).fetchall()]
-
+        sql = ("SELECT b.*, (SELECT COUNT(*) FROM articles a WHERE a.pid=b.pid AND a.bid=b.id "
+               "AND a.slug NOT IN (SELECT slug FROM article_overrides ov "
+               "WHERE ov.pid=b.pid AND ov.bid=b.id AND ov.hidden=1)) AS n "
+               "FROM books b WHERE b.pid=? ORDER BY b.rowid")
+        return [dict(r) for r in c.execute(sql, (pid,)).fetchall()]
 
 def get_book(pid, bid):
     with database.connect() as c:
-        r = c.execute("SELECT b.*, (SELECT COUNT(*) FROM articles a WHERE a.pid=b.pid AND a.bid=b.id) AS n FROM books b WHERE b.pid=? AND b.id=?", (pid, bid)).fetchone()
+        sql = ("SELECT b.*, (SELECT COUNT(*) FROM articles a WHERE a.pid=b.pid AND a.bid=b.id "
+               "AND a.slug NOT IN (SELECT slug FROM article_overrides ov "
+               "WHERE ov.pid=b.pid AND ov.bid=b.id AND ov.hidden=1)) AS n "
+               "FROM books b WHERE b.pid=? AND b.id=?")
+        r = c.execute(sql, (pid, bid)).fetchone()
         return dict(r) if r else None
-
-
 def list_articles(pid, bid):
     with database.connect() as c:
         return [dict(r) for r in c.execute("SELECT slug,title FROM articles WHERE pid=? AND bid=? ORDER BY ord", (pid, bid)).fetchall()]
@@ -147,6 +152,9 @@ def search(q, pid='', limit=60):
     words = [w for w in clean.split() if w]
     with database.connect() as c:
         rows = [dict(r) for r in c.execute(sql, params).fetchall()]
+        hidden = {(h[0], h[1], h[2]) for h in c.execute(
+            "SELECT pid,bid,slug FROM article_overrides WHERE hidden=1").fetchall()}
+        rows = [r for r in rows if (r['pid'], r['bid'], r['slug']) not in hidden]
         for r in rows:
             r['title'] = _cjk_unsplit(r['title'])
             raw = c.execute("SELECT body FROM articles WHERE pid=? AND bid=? AND slug=?",
@@ -239,3 +247,47 @@ def index_payload():
                 item['files'] = sorted(f.name for f in fdir.iterdir() if f.is_file())
         out.append(item)
     return {'projects': out}
+
+# ---------- 文章覆盖层（隐藏/改标题/改正文/排序，独立于同步） ----------
+
+def get_overrides(pid, bid):
+    with database.connect() as c:
+        return {r['slug']: dict(r) for r in c.execute(
+            "SELECT * FROM article_overrides WHERE pid=? AND bid=?",
+            (pid, bid)).fetchall()}
+
+
+def is_hidden(pid, bid, slug):
+    with database.connect() as c:
+        r = c.execute("SELECT hidden FROM article_overrides WHERE pid=? AND bid=? AND slug=?",
+                      (pid, bid, slug)).fetchone()
+        return bool(r and r['hidden'])
+
+
+def upsert_override(pid, bid, slug, hidden=None, title=None, body=None, sort=None):
+    now = time.strftime('%Y-%m-%d %H:%M')
+    with database._lock, database.connect() as c:
+        row = c.execute("SELECT * FROM article_overrides WHERE pid=? AND bid=? AND slug=?",
+                        (pid, bid, slug)).fetchone()
+        cur = dict(row) if row else {'hidden': 0, 'title': '', 'body': '', 'sort': None}
+        if hidden is not None:
+            cur['hidden'] = 1 if hidden else 0
+        if title is not None:
+            cur['title'] = title
+        if body is not None:
+            cur['body'] = body
+        if sort is not None:
+            cur['sort'] = sort
+        c.execute("INSERT INTO article_overrides(pid,bid,slug,hidden,title,body,sort,updated) "
+                  "VALUES(?,?,?,?,?,?,?,?) "
+                  "ON CONFLICT(pid,bid,slug) DO UPDATE SET hidden=excluded.hidden, "
+                  "title=excluded.title, body=excluded.body, sort=excluded.sort, "
+                  "updated=excluded.updated",
+                  (pid, bid, slug, cur['hidden'], cur['title'], cur['body'],
+                   cur['sort'], now))
+
+
+def clear_override(pid, bid, slug):
+    with database._lock, database.connect() as c:
+        c.execute("DELETE FROM article_overrides WHERE pid=? AND bid=? AND slug=?",
+                  (pid, bid, slug))

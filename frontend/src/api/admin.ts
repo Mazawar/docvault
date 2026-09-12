@@ -37,6 +37,15 @@ export const adminApi = {
     }
   }>('api/admin/storage'),
   purgeRepos: (pid: string) => postJSON<{ ok: boolean }>('api/admin/purge-repos', { pid }),
+  articleList: (pid: string, bid: string) =>
+    getJSON<{ items: { slug: string; title: string; hidden: boolean; titleOverride: boolean; bodyOverride: boolean; sort: number | null }[] }>(
+      `api/admin/articles/${encodeURIComponent(pid)}/${encodeURIComponent(bid)}`),
+  articleSet: (spec: { pid: string; bid: string; slug: string; hidden?: boolean; title?: string | null; body?: string | null }) =>
+    postJSON<{ ok: boolean }>('api/admin/articles/set', spec),
+  articleMove: (spec: { pid: string; bid: string; slug: string; dir: 'up' | 'down' }) =>
+    postJSON<{ ok: boolean }>('api/admin/articles/move', spec),
+  articleReset: (spec: { pid: string; bid: string; slug: string }) =>
+    postJSON<{ ok: boolean }>('api/admin/articles/reset', spec),
   purgeOrphanAssets: () => postJSON<{ ok: boolean }>('api/admin/purge-orphan-assets'),
   purgeDist: () => postJSON<{ ok: boolean }>('api/admin/purge-dist'),
   exportNotePdf: (folder: string, name: string) =>

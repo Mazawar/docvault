@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Delete, Edit, Download, Upload, MoreFilled, Brush } from '@element-plus/icons-vue'
@@ -146,6 +146,64 @@ const onPackFile = (e: Event) => {
 
 function fmtSize(n: number): string {
   return n < 1024 ? `${n}B` : n < 1048576 ? `${(n / 1024).toFixed(1)}K` : `${(n / 1048576).toFixed(1)}M`
+}
+
+/* ---------- 文章管理 ---------- */
+const amPid = ref('')
+const amBid = ref('')
+const amRows = ref<{ slug: string; title: string; hidden: boolean; titleOverride: boolean; bodyOverride: boolean; sort: number | null }[]>([])
+const amLoaded = ref(false)
+const amBooks = computed(() => ov.value?.projects.find((p) => p.id === amPid.value)?.books || [])
+const amVisible = computed(() => amRows.value.slice(0, 400))
+
+async function loadArticles() {
+  if (!amPid.value || !amBid.value) { amRows.value = []; return }
+  amRows.value = (await adminApi.articleList(amPid.value, amBid.value)).items
+}
+function onAmProject(pid: string) {
+  amPid.value = pid
+  amBid.value = amBooks.value[0]?.id || ''
+  amLoaded.value = false
+  amRows.value = []
+}
+async function onAmBook() {
+  amLoaded.value = true
+  await loadArticles()
+}
+async function amToggleHidden(r: { slug: string; hidden: boolean }) {
+  await adminApi.articleSet({ pid: amPid.value, bid: amBid.value, slug: r.slug, hidden: !r.hidden })
+  await loadArticles()
+}
+async function amMove(r: { slug: string }, dir: 'up' | 'down') {
+  await adminApi.articleMove({ pid: amPid.value, bid: amBid.value, slug: r.slug, dir })
+  await loadArticles()
+}
+const bodyDlg = ref(false)
+const bodyForm = reactive({ slug: '', title: '', content: '' })
+const bodySaving = ref(false)
+async function amEditBody(r: { slug: string; title: string }) {
+  const art = await import('@/api/reading').then((m) => m.getArticle(amPid.value, amBid.value, r.slug))
+  bodyForm.slug = r.slug
+  bodyForm.title = art.title
+  bodyForm.content = art.md || ''
+  bodyDlg.value = true
+}
+async function saveBody() {
+  await adminApi.articleSet({
+    pid: amPid.value, bid: amBid.value, slug: bodyForm.slug,
+    body: bodyForm.content, title: bodyForm.title
+  })
+  bodyDlg.value = false
+  ElMessage.success('已保存为本地覆盖（同步不会覆盖你的修改）')
+  await loadArticles()
+}
+async function amReset(r: { slug: string }) {
+  ElMessageBox.confirm('恢复这篇为原文（清除隐藏/标题/正文的本地覆盖）？', '恢复默认', { type: 'warning' })
+    .then(async () => {
+      await adminApi.articleReset({ pid: amPid.value, bid: amBid.value, slug: r.slug })
+      await loadArticles()
+      ElMessage.success('已恢复默认')
+    }).catch(() => {})
 }
 
 /* ---------- 统计 ---------- */
@@ -411,6 +469,64 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- 文章管理：单篇隐藏/改标题/改正文/排序 -->
+    <div class="card">
+      <h2>文章管理</h2>
+      <div class="flex flex-wrap items-center gap-2.5 mb-3">
+        <el-select v-model="amPid" placeholder="项目" class="!w-52" @change="onAmProject">
+          <el-option v-for="p in ov?.projects" :key="p.id" :value="p.id" :label="p.name" />
+        </el-select>
+        <el-select v-model="amBid" placeholder="书" class="!w-52" :disabled="!amPid" @change="onAmBook">
+          <el-option v-for="b in amBooks" :key="b.id" :value="b.id" :label="`${b.title} (${b.n})`" />
+        </el-select>
+        <span class="mut" v-if="amLoaded">共 {{ amRows.length }} 篇（隐藏 {{ amRows.filter(r=>r.hidden).length }} · 本地修改 {{ amRows.filter(r=>r.titleOverride||r.bodyOverride).length }}）</span>
+      </div>
+      <template v-if="amLoaded">
+        <div v-for="r in amVisible" :key="r.slug" class="amrow">
+          <div class="amorder">
+            <button class="ammove" title="上移" @click="amMove(r, 'up')">↑</button>
+            <button class="ammove" title="下移" @click="amMove(r, 'down')">↓</button>
+          </div>
+          <div class="ammain">
+            <a class="amtitle" :class="{ hidden: r.hidden }" :href="`#/read/${amPid}/${amBid}/${r.slug}`" target="_blank">{{ r.title }}</a>
+            <span v-if="r.hidden" class="amtag warn">已隐藏</span>
+            <span v-if="r.titleOverride" class="amtag">改标题</span>
+            <span v-if="r.bodyOverride" class="amtag">改正文</span>
+            <span class="amslug">{{ r.slug }}</span>
+          </div>
+          <div class="amops">
+            <el-switch
+              size="small"
+              :model-value="!r.hidden"
+              active-text=""
+              title="切换显示/隐藏"
+              @change="amToggleHidden(r)"
+            />
+            <el-button size="small" text type="primary" :icon="Edit" @click="amEditBody(r)">编辑</el-button>
+            <el-button size="small" text @click="amReset(r)">恢复默认</el-button>
+          </div>
+        </div>
+        <div v-if="amRows.length > 400" class="mut text-center text-xs pt-3">
+          仅显示前 400 篇，请用上方筛选或直接搜索
+        </div>
+      </template>
+      <div v-else class="mut text-[13px]">选择项目和书后加载文章列表</div>
+
+      <el-dialog v-model="bodyDlg" :title="'编辑正文 · ' + bodyForm.title" width="720" class="bodydlg">
+        <el-input
+          v-model="bodyForm.content"
+          type="textarea"
+          :rows="20"
+          spellcheck="false"
+          class="bodyta"
+        />
+        <template #footer>
+          <el-button @click="bodyDlg = false">取消</el-button>
+          <el-button type="primary" :loading="bodySaving" @click="saveBody">保存覆盖</el-button>
+        </template>
+      </el-dialog>
     </div>
 
     <!-- 维护：存储与队列并排 -->
@@ -755,6 +871,88 @@ function delProject(pid: string) {  ElMessageBox.confirm(`删除项目「${pid}�
   border-radius: 12px;
   padding: 14px 16px;
   background: var(--bg-soft);
+}
+.amrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 4px;
+  border-bottom: 1px dashed var(--divider);
+}
+.amrow:hover {
+  background: var(--bg-soft);
+}
+.amorder {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ammove {
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 1px 4px;
+}
+.ammove:hover {
+  color: var(--brand);
+}
+.ammain {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.amtitle {
+  font-size: 13.5px;
+  color: var(--text-1);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 420px;
+}
+.amtitle:hover {
+  color: var(--brand);
+}
+.amtitle.hidden {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+.amtag {
+  font-size: 11px;
+  border-radius: 5px;
+  padding: 0 6px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  white-space: nowrap;
+}
+.amtag.warn {
+  background: rgba(217, 119, 6, 0.12);
+  color: #d97706;
+}
+.amslug {
+  font-size: 11px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+.amops {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.bodyta :deep(textarea) {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.7;
 }
 .ptitle {
   font-weight: 600;

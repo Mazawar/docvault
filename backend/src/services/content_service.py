@@ -175,18 +175,82 @@ def render_article(pid, bid, slug):
     }
 
 
+def _effective_articles(pid, bid):
+    """list_articles + 覆盖层合并：隐藏剔除、标题覆盖、排序覆盖（有 sort 的按 sort）。"""
+    arts = repository.list_articles(pid, bid)
+    ovs = repository.get_overrides(pid, bid)
+    out = []
+    for a in arts:
+        o = ovs.get(a['slug'])
+        if o and o['hidden']:
+            continue
+        title = (o['title'] if o and o['title'] else a['title'])
+        out.append({'slug': a['slug'], 'title': title,
+                    'sort': (o['sort'] if o else None)})
+    if any(x['sort'] is not None for x in out):
+        out.sort(key=lambda x: (x['sort'] if x['sort'] is not None else 10 ** 9,))
+    return out
+
+
 def book_payload(pid, bid):
     """-> 书目录 payload（文章列表按分组前缀信息交由前端聚合）。"""
     book = repository.get_book(pid, bid)
     if not book:
         return None
     proj = repository.get_project(pid)
+    articles = _effective_articles(pid, bid)
     return {
-        'pid': pid, 'bid': bid, 'title': book['title'], 'n': book['n'],
+        'pid': pid, 'bid': bid, 'title': book['title'], 'n': len(articles),
         'pname': proj['name'] if proj else pid,
         'updated': proj['updated'] if proj else '',
-        'gt': ((proj or {}).get('group_titles') or {}).get(bid, {}),
-        'articles': repository.list_articles(pid, bid),
+        'gt': (proj or {}).get('group_titles') or {},
+        'articles': [{'slug': a['slug'], 'title': a['title']} for a in articles],
+    }
+
+
+def render_article(pid, bid, slug):
+    """-> 前端 article payload；文章不存在返回 None。
+
+    html：Python-Markdown 预渲染（离线静态包与搜索摘要用）。
+    md：文本级清洗后的 Markdown（应用内由前端 markdown-it 渲染）。
+    覆盖层：body/title 覆盖优先于原文；prev/next 基于生效顺序。
+    """
+    art = repository.get_article(pid, bid, slug)
+    book = repository.get_book(pid, bid)
+    if not art or not book:
+        return None
+    articles = _effective_articles(pid, bid)
+    idx = next((i for i, a in enumerate(articles) if a['slug'] == slug), -1)
+    prev = articles[idx - 1] if idx > 0 else None
+    nxt = articles[idx + 1] if 0 <= idx < len(articles) - 1 else None
+
+    ov = repository.get_overrides(pid, bid).get(slug) or {}
+    broot = Path(book['root'])
+    cur_dir = (broot / slug).parent
+    pmap = _pathmap(pid)
+
+    src = ov.get('body') or art['body']
+    title = ov.get('title') or art['title']
+
+    body = util.md_to_html(src)
+    body = re.sub(r'<h1[^>]*>.*?</h1>', '', body, count=1, flags=re.S)
+    body = util.alerts(body)
+    body = _rewrite_remote(body)
+    body = util.localize_local(body, cur_dir, config.ASSETS)
+    body = _Linker(broot, pmap)(body, cur_dir)
+
+    proj = repository.get_project(pid)
+    return {
+        'pid': pid, 'bid': bid, 'slug': slug,
+        'title': title,
+        'html': body,
+        'md': _md_for_client(src, broot, slug, pmap),
+        'prev': {'slug': prev['slug'], 'title': prev['title']} if prev else None,
+        'next': {'slug': nxt['slug'], 'title': nxt['title']} if nxt else None,
+        'updated': proj['updated'] if proj else '',
+        'source': f"https://github.com/{proj['repo']}" if proj and proj.get('repo') else '',
+        'pname': proj['name'] if proj else pid,
+        'btitle': book['title'],
     }
 
 

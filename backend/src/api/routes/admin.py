@@ -9,8 +9,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from ...core import config
 from ...models import database, repository
-from ...services import (export_service, job_service, note_service, pack_service,
-                         pdf_service, sync_service)
+from ...services import (content_service, export_service, job_service,
+                         note_service, pack_service, pdf_service, sync_service)
 
 router = APIRouter(prefix='/api/admin', tags=['admin'])
 
@@ -118,6 +118,79 @@ def _sweep_dist_temps(max_age_min=60):
             except OSError:
                 pass
     return freed
+
+
+class ArticleSpec(BaseModel):
+    pid: str
+    bid: str
+    slug: str
+    hidden: bool | None = None
+    title: str | None = None
+    body: str | None = None
+    sort: int | None = None
+
+
+class ArticleMoveSpec(BaseModel):
+    pid: str
+    bid: str
+    slug: str
+    dir: str = 'up'
+
+
+@router.get('/articles/{pid}/{bid}')
+def articles_list(pid: str, bid: str):
+    """文章管理列表：原始全量 + 生效标题 + 覆盖状态标记（含隐藏项）。"""
+    arts = repository.list_articles(pid, bid)
+    ovs = repository.get_overrides(pid, bid)
+    eff = {a['slug'] for a in content_service._effective_articles(pid, bid)}
+    items = []
+    for a in arts:
+        o = ovs.get(a['slug']) or {}
+        items.append({
+            'slug': a['slug'],
+            'title': (o.get('title') or a['title']),
+            'hidden': bool(o.get('hidden')),
+            'titleOverride': bool(o.get('title')),
+            'bodyOverride': bool(o.get('body')),
+            'inShelf': a['slug'] in eff,
+            'sort': o.get('sort'),
+        })
+    items.sort(key=lambda x: (not x['inShelf'], x['sort'] if x['sort'] is not None else 10 ** 9))
+    return {'items': items}
+
+
+@router.post('/articles/set')
+def articles_set(spec: ArticleSpec):
+    """设置单篇覆盖：隐藏开关 / 标题覆盖 / 正文覆盖（传 null 字段表示不修改）。"""
+    if not repository.get_article(spec.pid, spec.bid, spec.slug):
+        raise HTTPException(status_code=404, detail='article not found')
+    repository.upsert_override(spec.pid, spec.bid, spec.slug,
+                               hidden=spec.hidden, title=spec.title,
+                               body=spec.body, sort=spec.sort)
+    return {'ok': True}
+
+
+@router.post('/articles/move')
+def articles_move(spec: ArticleMoveSpec):
+    """基于生效顺序上移/下移：为全书写入显式 sort 序列。"""
+    arts = content_service._effective_articles(spec.pid, spec.bid)
+    slugs = [a['slug'] for a in arts]
+    if spec.slug not in slugs:
+        raise HTTPException(status_code=404, detail='article not found')
+    i = slugs.index(spec.slug)
+    j = i - 1 if spec.dir == 'up' else i + 1
+    if 0 <= j < len(slugs):
+        slugs[i], slugs[j] = slugs[j], slugs[i]
+        for pos, sg in enumerate(slugs):
+            repository.upsert_override(spec.pid, spec.bid, sg, sort=pos)
+    return {'ok': True}
+
+
+@router.post('/articles/reset')
+def articles_reset(spec: ArticleSpec):
+    """恢复默认：删除该篇的全部覆盖。"""
+    repository.clear_override(spec.pid, spec.bid, spec.slug)
+    return {'ok': True}
 
 
 @router.get('/storage')
