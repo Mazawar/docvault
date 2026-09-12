@@ -159,15 +159,14 @@ const amVisible = computed(() => amRows.value.slice(0, 400))
 async function loadArticles() {
   if (!amPid.value || !amBid.value) { amRows.value = []; return }
   amRows.value = (await adminApi.articleList(amPid.value, amBid.value)).items
+  amLoaded.value = true
 }
 function onAmProject(pid: string) {
   amPid.value = pid
   amBid.value = amBooks.value[0]?.id || ''
-  amLoaded.value = false
-  amRows.value = []
+  loadArticles()
 }
 async function onAmBook() {
-  amLoaded.value = true
   await loadArticles()
 }
 async function amToggleHidden(r: { slug: string; hidden: boolean }) {
