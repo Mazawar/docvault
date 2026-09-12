@@ -17,8 +17,9 @@ const amBooks = computed(() => ov.value?.projects.find((p) => p.id === amPid.val
 const amVisible = computed(() => amRows.value.slice(0, 400))
 
 async function loadArticles() {
-  if (!amPid.value || !amBid.value) { amRows.value = []; return }
+  if (!amPid.value || !amBid.value) { amRows.value = []; amLoaded.value = false; return }
   amRows.value = (await adminApi.articleList(amPid.value, amBid.value)).items
+  amLoaded.value = true
 }
 function onAmProject(pid: string) {
   amPid.value = pid
@@ -190,6 +191,29 @@ async function amReset(r: { slug: string; title: string }) {
   max-width: 260px;
 }
 .amops { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+@media (max-width: 768px) {
+  .amrow {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 10px 2px;
+  }
+  .ammain {
+    flex: 1 1 calc(100% - 40px);
+  }
+  .amtitle {
+    max-width: 100%;
+    white-space: normal;
+    font-size: 14px;
+  }
+  .amslug {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .amops {
+    flex-basis: 100%;
+    padding-left: 34px;
+  }
+}
 @media (max-width: 768px) {
   .ammain { flex-direction: column; align-items: flex-start; gap: 3px; }
   .amslug { max-width: 100%; }
