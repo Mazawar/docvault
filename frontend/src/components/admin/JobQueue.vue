@@ -28,4 +28,25 @@ const { ov } = useAdmin()
   margin: 0;
 }
 .jobpre span { display: inline; }
+
+.card {
+  margin-bottom: 16px;
+  border: 1px solid var(--divider);
+  border-radius: 10px;
+  padding: 16px 18px;
+  background: var(--bg);
+}
+.card > h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.mut {
+  color: var(--text-3);
+  font-size: 12px;
+}
+:deep(.el-dialog) {
+  max-width: calc(100vw - 24px);
+}
 </style>

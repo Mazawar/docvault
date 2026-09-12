@@ -132,4 +132,8 @@ onBeforeUnmount(() => {
   .wrap { padding: 16px 12px 64px; }
   .pagehead h1 { font-size: 18px; }
 }
+.mut {
+  color: var(--text-3);
+  font-size: 12px;
+}
 </style>

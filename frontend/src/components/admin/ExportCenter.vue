@@ -81,4 +81,25 @@ const { ov, packBusy, zipBusy, jobRunning, doExport, doExportPack, fmtSize } = u
 @keyframes edge-slide { to { left: 100%; } }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.25s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.card {
+  margin-bottom: 16px;
+  border: 1px solid var(--divider);
+  border-radius: 10px;
+  padding: 16px 18px;
+  background: var(--bg);
+}
+.card > h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.mut {
+  color: var(--text-3);
+  font-size: 12px;
+}
+:deep(.el-dialog) {
+  max-width: calc(100vw - 24px);
+}
 </style>

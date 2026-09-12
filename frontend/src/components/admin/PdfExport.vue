@@ -30,3 +30,23 @@ watch(pdfPid, () => (pdfBid.value = ''))
     <div class="mut mt-2 truncate">已有：{{ ov?.pdfs.join('　') || '无' }}</div>
   </div>
 </template>
+
+<style scoped>
+.card {
+  margin-bottom: 16px;
+  border: 1px solid var(--divider);
+  border-radius: 10px;
+  padding: 16px 18px;
+  background: var(--bg);
+}
+.card > h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.mut {
+  color: var(--text-3);
+  font-size: 12px;
+}
+</style>
